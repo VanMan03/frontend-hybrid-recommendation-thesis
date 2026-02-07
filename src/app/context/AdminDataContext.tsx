@@ -1,115 +1,164 @@
-import React, { createContext, useContext, useState } from 'react';
-import { type MainCategory, type SubCategory } from '@/app/data/tourismCategories';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { apiRequest } from "../../services/api";
+
+/* =======================
+   TYPES (MATCH BACKEND)
+======================= */
 
 export type Destination = {
-  id: number;
+  _id: string;
   name: string;
   description: string;
-  mainCategory: MainCategory;
-  subCategory: SubCategory;
-  image: string;
-  status: string;
-  entryFee: string;
-  duration: string;
-  accessibility: string;
-};
-
-export type User = {
-  id: number;
-  name: string;
-  activityLevel: string;
-  itineraryCount: number;
-  joinDate: string;
-  accountStatus: string;
-};
-
-export type Itinerary = {
-  id: number;
-  user: string;
-  budgetRange: string;
-  destinations: string;
-  dateGenerated: string;
-  status: string;
+  category: string;
+  estimatedCost: number;
+  features: Record<string, number>;
+  isActive: boolean;
 };
 
 type AdminDataContextType = {
   destinations: Destination[];
-  users: User[];
-  itineraries: Itinerary[];
-  addDestination: (d: Omit<Destination, 'id' | 'image' | 'status'>) => void;
-  removeDestination: (id: number) => void;
-  updateDestinationCategory: (id: number, mainCategory: MainCategory, subCategory: SubCategory) => void;
-    updateDestination: (id: number, updates: Partial<Omit<Destination, 'id' | 'mainCategory' | 'subCategory' | 'description' | 'image'>>) => void;
-  addUser: (u: Omit<User, 'id'>) => void;
-  removeUser: (id: number) => void;
-  addItinerary: (it: Omit<Itinerary, 'id'>) => void;
-  removeItinerary: (id: number) => void;
+  loading: boolean;
+  error: string | null;
+  fetchDestinations: () => Promise<void>;
+  createDestination: (data: Partial<Destination>) => Promise<void>;
+  updateDestination: (id: string, data: Partial<Destination>) => Promise<void>;
+  deleteDestination: (id: string) => Promise<void>;
 };
 
-const AdminDataContext = createContext<AdminDataContextType | undefined>(undefined);
+/* =======================
+   CONTEXT
+======================= */
 
-export const AdminDataProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
+const AdminDataContext = createContext<AdminDataContextType | undefined>(
+  undefined
+);
+
+/* =======================
+   PROVIDER
+======================= */
+
+export const AdminDataProvider: React.FC<
+  React.PropsWithChildren<{}>
+> = ({ children }) => {
   const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const addDestination = (d: Omit<Destination, 'id' | 'image' | 'status'>) => {
-    const id = Date.now();
-    const destination: Destination = {
-      id,
-      image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=300&fit=crop',
-      status: 'Active',
-      ...d,
-    } as Destination;
-    setDestinations((s) => [...s, destination]);
+  /* -------- Fetch -------- */
+  const fetchDestinations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const data = await apiRequest("/destinations");
+      setDestinations(data);
+    } catch (err: any) {
+      setError(err.message || "Failed to load destinations");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const removeDestination = (id: number) => setDestinations((s) => s.filter((d) => d.id !== id));
+  /* -------- Create -------- */
+  const createDestination = async (data: Partial<Destination>) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const updateDestinationCategory = (id: number, mainCategory: MainCategory, subCategory: SubCategory) => {
-    setDestinations((s) => s.map((d) => (d.id === id ? { ...d, mainCategory, subCategory } : d)));
+      await apiRequest("/admin/destinations", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+
+      await fetchDestinations();
+    } catch (err: any) {
+      setError(err.message || "Failed to create destination");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateDestination = (id: number, updates: Partial<Omit<Destination, 'id' | 'mainCategory' | 'subCategory' | 'description' | 'image'>>) => {
-    setDestinations((s) => s.map((d) => (d.id === id ? { ...d, ...updates } : d)));
+  /* -------- Update -------- */
+  const updateDestination = async (
+    id: string,
+    data: Partial<Destination>
+  ) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      await apiRequest(`/admin/destinations/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+
+      await fetchDestinations();
+    } catch (err: any) {
+      setError(err.message || "Failed to update destination");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const addUser = (u: Omit<User, 'id'>) => {
-    const id = Date.now();
-    setUsers((s) => [...s, { id, ...u } as User]);
+  /* -------- Soft Delete -------- */
+  const deleteDestination = async (id: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      await apiRequest(`/admin/destinations/${id}`, {
+        method: "DELETE",
+      });
+
+      await fetchDestinations();
+    } catch (err: any) {
+      setError(err.message || "Failed to deactivate destination");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const removeUser = (id: number) => setUsers((s) => s.filter((u) => u.id !== id));
-
-  const addItinerary = (it: Omit<Itinerary, 'id'>) => {
-    const id = Date.now();
-    setItineraries((s) => [...s, { id, ...it } as Itinerary]);
-  };
-
-  const removeItinerary = (id: number) => setItineraries((s) => s.filter((i) => i.id !== id));
+  /* -------- Initial Load -------- */
+  useEffect(() => {
+    fetchDestinations();
+  }, []);
 
   return (
-    <AdminDataContext.Provider value={{
-      destinations,
-      users,
-      itineraries,
-      addDestination,
-      removeDestination,
-      updateDestinationCategory,
-      updateDestination,
-      addUser,
-      removeUser,
-      addItinerary,
-      removeItinerary,
-    }}>
+    <AdminDataContext.Provider
+      value={{
+        destinations,
+        loading,
+        error,
+        fetchDestinations,
+        createDestination,
+        updateDestination,
+        deleteDestination,
+      }}
+    >
       {children}
     </AdminDataContext.Provider>
   );
 };
 
+/* =======================
+   HOOK
+======================= */
+
 export const useAdminData = () => {
   const ctx = useContext(AdminDataContext);
-  if (!ctx) throw new Error('useAdminData must be used within AdminDataProvider');
+  if (!ctx) {
+    throw new Error(
+      "useAdminData must be used within an AdminDataProvider"
+    );
+  }
   return ctx;
 };
 

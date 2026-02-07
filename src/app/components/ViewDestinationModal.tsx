@@ -13,7 +13,6 @@ interface ViewDestinationModalProps {
     image: string;
     status: string;
     entryFee: string;
-    duration: string;
     accessibility: string;
   } | null;
 }
@@ -77,17 +76,11 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
           </div>
 
           {/* Details Grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {/* Entry Fee */}
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
               <p className="text-xs font-semibold text-blue-900 uppercase mb-2">Entry Fee</p>
               <p className="text-xl font-bold text-blue-600">{destination.entryFee}</p>
-            </div>
-
-            {/* Duration */}
-            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <p className="text-xs font-semibold text-purple-900 uppercase mb-2">Duration</p>
-              <p className="text-xl font-bold text-purple-600">{destination.duration}</p>
             </div>
 
             {/* Accessibility */}

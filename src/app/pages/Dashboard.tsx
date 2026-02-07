@@ -6,14 +6,22 @@ export const mostRecommendedDestinations: any[] = [];
 export const recentActivity: any[] = [];
 
 export function Dashboard() {
-  const { users, destinations, itineraries } = useAdminData();
+  const { destinations } = useAdminData();
 
-  const stats = [
-    { label: 'Total Users', value: users.length.toLocaleString(), icon: Users, color: 'bg-blue-500' },
-    { label: 'Total Destinations', value: destinations.length, icon: MapPin, color: 'bg-teal-500' },
-    { label: 'Itineraries Generated', value: itineraries.length.toLocaleString(), icon: Route, color: 'bg-purple-500' },
-    { label: 'System Status', value: 'Operational', icon: CheckCircle, color: 'bg-green-500' },
-  ];
+const stats = [
+  {
+    label: 'Total Destinations',
+    value: destinations?.length ?? 0,
+    icon: MapPin,
+    color: 'bg-teal-500',
+  },
+  {
+    label: 'System Status',
+    value: 'Operational',
+    icon: CheckCircle,
+    color: 'bg-green-500',
+  },
+];
 
   const getActivityIcon = (type: string) => {
     switch (type) {
