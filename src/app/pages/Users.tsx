@@ -1,8 +1,13 @@
 import { Search, UserCheck, UserX, Eye } from 'lucide-react';
 import { useAdminData } from '@/app/context/AdminDataContext';
+import { useEffect } from 'react';
 
 export function Users() {
-  const { users } = useAdminData();
+  const { users, fetchUsers } = useAdminData();
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   return (
     <div className="space-y-6">

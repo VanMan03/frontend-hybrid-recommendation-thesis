@@ -32,12 +32,17 @@ export type CreateDestinationPayload = {
 
 type AdminDataContextType = {
   destinations: Destination[];
+   users: any[];                 
+  itineraries: any[];
   loading: boolean;
   error: string | null;
   createDestination: (data: CreateDestinationPayload) => Promise<void>;
   fetchDestinations: () => Promise<void>;
   updateDestination: (id: string, data: Partial<Destination>) => Promise<void>;
   deleteDestination: (id: string) => Promise<void>;
+
+  fetchUsers: () => Promise<void>;
+  fetchItineraries: () => Promise<void>;
 };
 
 /* =======================
@@ -56,6 +61,9 @@ export const AdminDataProvider: React.FC<
   React.PropsWithChildren<{}>
 > = ({ children }) => {
   const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [itineraries, setItineraries] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,12 +113,7 @@ export const AdminDataProvider: React.FC<
   // Updates destination data
 const updateDestination = async (
   id: string,
-  updates: {
-    name?: string;
-    description?: string;
-    estimatedCost?: number;
-    isActive?: boolean;
-  }
+  updates: Partial<Destination>
 ) => {
   await apiRequest(`/admin/destinations/${id}`, {
     method: "PUT",
@@ -122,6 +125,24 @@ const updateDestination = async (
     )
   );
 };
+
+  const fetchUsers = async () => {
+    try {
+      const data = await apiRequest("/admin/users");
+      setUsers(data);
+    } catch (err) {
+      console.error("Failed to fetch users", err);
+    }
+  };
+
+  const fetchItineraries = async () => {
+    try {
+      const data = await apiRequest("/itineraries");
+      setItineraries(data);
+    } catch (err) {
+      console.error("Failed to fetch itineraries", err);
+    }
+  };
 
 
 
@@ -144,12 +165,16 @@ const updateDestination = async (
     <AdminDataContext.Provider
       value={{
         destinations,
+        users,
+        itineraries,
         loading,
         error,
         fetchDestinations,
         createDestination,
         updateDestination,
         deleteDestination,
+        fetchUsers,
+        fetchItineraries,
       }}
     >
       {children}

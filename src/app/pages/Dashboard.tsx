@@ -1,12 +1,18 @@
 import { Users, MapPin, Route, CheckCircle, Activity, Clock } from 'lucide-react';
 import { useAdminData } from '@/app/context/AdminDataContext';
+import { useEffect } from 'react';
 
 export const mostRecommendedDestinations: any[] = [];
 
 export const recentActivity: any[] = [];
 
 export function Dashboard() {
-  const { destinations } = useAdminData();
+  const { destinations, users, itineraries, fetchUsers, fetchItineraries } = useAdminData();
+
+  useEffect(() => {
+    fetchUsers();
+    fetchItineraries();
+  }, []);
 
 const stats = [
   {
@@ -14,6 +20,18 @@ const stats = [
     value: destinations?.length ?? 0,
     icon: MapPin,
     color: 'bg-teal-500',
+  },
+  {
+    label: 'Total Users',
+    value: users?.length ?? 0,
+    icon: Users,
+    color: 'bg-blue-500',
+  },
+  {
+    label: 'Total Itineraries',
+    value: itineraries?.length ?? 0,
+    icon: Route,
+    color: 'bg-amber-500',
   },
   {
     label: 'System Status',
