@@ -1,18 +1,8 @@
 import { useState } from "react";
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Edit, Power } from "lucide-react";
 import { AddDestinationModal } from "@/app/components/AddDestinationModal";
 import { EditDestinationModal } from "@/app/components/EditDestinationModal";
-import { useAdminData } from "@/app/context/AdminDataContext";
-
-type Destination = {
-  _id: string;
-  name: string;
-  description: string;
-  category: string;
-  estimatedCost: number;
-  features: Record<string, number>;
-  isActive: boolean;
-};
+import { useAdminData, type Destination } from "@/app/context/AdminDataContext";
 
 export function Destinations() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,20 +10,43 @@ export function Destinations() {
   const [editingDestination, setEditingDestination] =
     useState<Destination | null>(null);
 
-  const {
-    destinations,
-    loading,
-    error,
-    deleteDestination,
-  } = useAdminData();
+  const { destinations, loading, error, updateDestination } = useAdminData();
 
   const filteredDestinations = destinations.filter((dest) =>
     dest.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleEditDestinationSave = async (
+    destinationId: string,
+    updates: {
+      name: string;
+      description: string;
+      estimatedCost: number;
+    }
+  ) => {
+    await updateDestination(destinationId, updates);
+    setEditingDestination(null);
+  };
+
+  const handleToggleDestinationStatus = async (destination: Destination) => {
+    await updateDestination(destination._id, {
+      isActive: !destination.isActive,
+    });
+  };
+
+  const formatFeatures = (features: Destination["features"]) => {
+    if (Array.isArray(features)) {
+      return features.join(", ");
+    }
+
+    return Object.entries(features ?? {})
+      .filter(([, value]) => value > 0)
+      .map(([feature]) => feature)
+      .join(", ");
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -52,7 +65,6 @@ export function Destinations() {
         </button>
       </div>
 
-      {/* Search */}
       <div className="bg-white rounded-xl shadow-sm border p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
@@ -66,10 +78,9 @@ export function Destinations() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         {loading ? (
-          <p className="p-6 text-gray-600">Loading destinations…</p>
+          <p className="p-6 text-gray-600">Loading destinations...</p>
         ) : error ? (
           <p className="p-6 text-red-600">{error}</p>
         ) : (
@@ -81,6 +92,9 @@ export function Destinations() {
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold">
                   Category
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold">
+                  Features
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold">
                   Entry Fee
@@ -96,7 +110,7 @@ export function Destinations() {
             <tbody className="divide-y">
               {filteredDestinations.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     No destinations found
                   </td>
                 </tr>
@@ -105,14 +119,13 @@ export function Destinations() {
                   <tr key={dest._id}>
                     <td className="px-6 py-4">
                       <p className="font-semibold">{dest.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {dest.description}
-                      </p>
+                      <p className="text-xs text-gray-500">{dest.description}</p>
                     </td>
                     <td className="px-6 py-4">{dest.category}</td>
-                    <td className="px-6 py-4">
-                      ₱{dest.estimatedCost}
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {formatFeatures(dest.features) || "No features"}
                     </td>
+                    <td className="px-6 py-4">PHP {dest.estimatedCost}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -133,10 +146,13 @@ export function Destinations() {
                           <Edit className="size-4" />
                         </button>
                         <button
-                          onClick={() => deleteDestination(dest._id)}
-                          className="p-2 hover:bg-red-50 rounded"
+                          onClick={() => handleToggleDestinationStatus(dest)}
+                          className={`p-2 rounded ${
+                            dest.isActive ? "hover:bg-red-50" : "hover:bg-green-50"
+                          }`}
+                          title={dest.isActive ? "Set inactive" : "Set active"}
                         >
-                          <Trash2 className="size-4" />
+                          <Power className="size-4" />
                         </button>
                       </div>
                     </td>
@@ -148,19 +164,16 @@ export function Destinations() {
         )}
       </div>
 
-{/* Add Modal */}
-<AddDestinationModal
-  isOpen={isAddModalOpen}
-  onClose={() => setIsAddModalOpen(false)}
-/>
+      <AddDestinationModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+      />
 
-
-
-      {/* Edit Modal */}
       {editingDestination && (
         <EditDestinationModal
           isOpen={!!editingDestination}
           onClose={() => setEditingDestination(null)}
+          onSave={handleEditDestinationSave}
           destination={editingDestination}
         />
       )}

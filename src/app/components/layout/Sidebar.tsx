@@ -1,26 +1,26 @@
-import { NavLink } from 'react-router';
-import { 
-  LayoutDashboard, 
-  MapPin, 
-  Users, 
-  Route, 
-  DollarSign, 
-  Star, 
-  BarChart3, 
-  FileText, 
-  Settings 
-} from 'lucide-react';
+import { NavLink } from "react-router-dom";
+import {
+  LayoutDashboard,
+  MapPin,
+  Users,
+  Route,
+  DollarSign,
+  Star,
+  BarChart3,
+  FileText,
+  Settings,
+} from "lucide-react";
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/destinations', label: 'Destinations', icon: MapPin },
-  { path: '/users', label: 'Users', icon: Users },
-  { path: '/itineraries', label: 'Itineraries', icon: Route },
-  { path: '/budget', label: 'Budget & Cost', icon: DollarSign },
-  { path: '/feedback', label: 'Ratings & Feedback', icon: Star },
-  { path: '/analytics', label: 'Reports & Analytics', icon: BarChart3 },
-  { path: '/logs', label: 'System Logs', icon: FileText },
-  { path: '/content', label: 'Content', icon: Settings },
+  { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/admin/destinations", label: "Destinations", icon: MapPin },
+  { path: "/admin/users", label: "Users", icon: Users },
+  { path: "/admin/itineraries", label: "Itineraries", icon: Route },
+  { path: "/admin/budget", label: "Budget & Cost", icon: DollarSign },
+  { path: "/admin/feedback", label: "Ratings & Feedback", icon: Star },
+  { path: "/admin/analytics", label: "Reports & Analytics", icon: BarChart3 },
+  { path: "/admin/logs", label: "System Logs", icon: FileText },
+  { path: "/admin/content", label: "Content", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -35,18 +35,18 @@ export function Sidebar() {
           <p className="text-xs text-teal-200">Tourism Dashboard</p>
         </div>
       </div>
-      
+
       <nav className="p-4 space-y-1">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/'}
+            end={item.path === "/admin/dashboard"}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                 isActive
-                  ? 'bg-white/20 text-white shadow-lg'
-                  : 'text-teal-100 hover:bg-white/10 hover:text-white'
+                  ? "bg-white/20 text-white shadow-lg"
+                  : "text-teal-100 hover:bg-white/10 hover:text-white"
               }`
             }
           >

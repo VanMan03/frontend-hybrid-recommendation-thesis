@@ -14,18 +14,28 @@ export type Destination = {
   _id: string;
   name: string;
   description: string;
-  category: string;
   estimatedCost: number;
-  features: Record<string, number>;
+  category: string; // display only
+  features: string[] | Record<string, number>; // display only
   isActive: boolean;
 };
+
+export type CreateDestinationPayload = {
+  name: string;
+  description: string;
+  category: string;
+  features: string[];
+  estimatedCost: number;
+};
+
+
 
 type AdminDataContextType = {
   destinations: Destination[];
   loading: boolean;
   error: string | null;
+  createDestination: (data: CreateDestinationPayload) => Promise<void>;
   fetchDestinations: () => Promise<void>;
-  createDestination: (data: Partial<Destination>) => Promise<void>;
   updateDestination: (id: string, data: Partial<Destination>) => Promise<void>;
   deleteDestination: (id: string) => Promise<void>;
 };
@@ -55,7 +65,14 @@ export const AdminDataProvider: React.FC<
       setLoading(true);
       setError(null);
 
-      const data = await apiRequest("/destinations");
+      let data: Destination[];
+      try {
+        // Prefer admin list when available (may include inactive records)
+        data = await apiRequest("/admin/destinations");
+      } catch {
+        // Fallback for backends that only expose public list route
+        data = await apiRequest("/destinations");
+      }
       setDestinations(data);
     } catch (err: any) {
       setError(err.message || "Failed to load destinations");
@@ -65,7 +82,7 @@ export const AdminDataProvider: React.FC<
   };
 
   /* -------- Create -------- */
-  const createDestination = async (data: Partial<Destination>) => {
+  const createDestination = async (data: CreateDestinationPayload) => {
     try {
       setLoading(true);
       setError(null);
@@ -84,47 +101,39 @@ export const AdminDataProvider: React.FC<
     }
   };
 
-  /* -------- Update -------- */
-  const updateDestination = async (
-    id: string,
-    data: Partial<Destination>
-  ) => {
-    try {
-      setLoading(true);
-      setError(null);
 
-      await apiRequest(`/admin/destinations/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
+  // Updates destination data
+const updateDestination = async (
+  id: string,
+  updates: {
+    name?: string;
+    description?: string;
+    estimatedCost?: number;
+    isActive?: boolean;
+  }
+) => {
+  await apiRequest(`/admin/destinations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(updates),
+  });
+  setDestinations((prev) =>
+    prev.map((destination) =>
+      destination._id === id ? { ...destination, ...updates } : destination
+    )
+  );
+};
 
-      await fetchDestinations();
-    } catch (err: any) {
-      setError(err.message || "Failed to update destination");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+
+
 
   /* -------- Soft Delete -------- */
   const deleteDestination = async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
+  await apiRequest(`/admin/destinations/${id}`, {
+    method: "DELETE",
+  });
+  await fetchDestinations();
+};
 
-      await apiRequest(`/admin/destinations/${id}`, {
-        method: "DELETE",
-      });
-
-      await fetchDestinations();
-    } catch (err: any) {
-      setError(err.message || "Failed to deactivate destination");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   /* -------- Initial Load -------- */
   useEffect(() => {
