@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { X, Save } from "lucide-react";
 import {
   tourismCategories,
@@ -8,6 +8,7 @@ import {
 } from "@/app/data/tourismCategories";
 import { useAdminData } from "@/app/context/AdminDataContext";
 import { mapDestinationPayload } from "@/utils/mapDestinationPayload";
+import { LocationMap } from "@/app/components/LocationMap";
 
 interface AddDestinationModalProps {
   isOpen: boolean;
@@ -18,7 +19,10 @@ export function AddDestinationModal({
   isOpen,
   onClose,
 }: AddDestinationModalProps) {
-  const { createDestination } = useAdminData();
+  const { createDestination, uploadImages } = useAdminData();
+
+  const [image, setImages] = useState<File[]>([]);
+  const [isResolvingAddress, setIsResolvingAddress] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -26,10 +30,13 @@ export function AddDestinationModal({
     mainCategory: "Nature Tourism" as MainCategory,
     subCategory: tourismCategories["Nature Tourism"][0] as SubCategory,
     entryFeeValue: null as number | null,
-    accessibility: "Moderate", // UI-only, not sent to backend
+    accessibility: "Moderate",
+    location: {
+      latitude: null as number | null,
+      longitude: null as number | null,
+      resolvedAddress: "",
+    },
   });
-
-  if (!isOpen) return null;
 
   const handleMainCategoryChange = (category: MainCategory) => {
     setFormData({
@@ -46,6 +53,21 @@ export function AddDestinationModal({
     });
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+
+    if (image.length + files.length > 4) {
+      alert("Maximum 4 images only");
+      return;
+    }
+
+    setImages([...image, ...files]);
+  };
+
+  const removeImage = (index: number) => {
+    setImages(image.filter((_, i) => i !== index));
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -54,12 +76,80 @@ export function AddDestinationModal({
       subCategory: tourismCategories["Nature Tourism"][0] as SubCategory,
       entryFeeValue: null,
       accessibility: "Moderate",
+      location: {
+        latitude: null,
+        longitude: null,
+        resolvedAddress: "",
+      },
     });
+    setImages([]);
+    setIsResolvingAddress(false);
   };
+
+  const reverseGeocode = useCallback(async (latitude: number, longitude: number) => {
+    setIsResolvingAddress(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+      );
+      if (!response.ok) {
+        return "";
+      }
+
+      const data = (await response.json()) as { display_name?: string };
+      return data.display_name ?? "";
+    } catch (error) {
+      console.error("Failed to reverse geocode location:", error);
+      return "";
+    } finally {
+      setIsResolvingAddress(false);
+    }
+  }, []);
+
+  const handleMapLocationSelect = useCallback(async (next: {
+    latitude: number;
+    longitude: number;
+  }) => {
+    setFormData((prev) => ({
+      ...prev,
+      location: {
+        ...prev.location,
+        latitude: next.latitude,
+        longitude: next.longitude,
+      },
+    }));
+
+    const resolvedAddress = await reverseGeocode(next.latitude, next.longitude);
+
+    setFormData((prev) => ({
+      ...prev,
+      location: {
+        ...prev.location,
+        latitude: next.latitude,
+        longitude: next.longitude,
+        resolvedAddress,
+      },
+    }));
+  }, [reverseGeocode]);
 
   const handleSave = async () => {
     if (!formData.name.trim() || !formData.description.trim()) {
       alert("Please fill in all required fields");
+      return;
+    }
+    if (formData.entryFeeValue === null || Number.isNaN(formData.entryFeeValue)) {
+      alert("Please enter an entry fee");
+      return;
+    }
+    if (formData.entryFeeValue < 0) {
+      alert("Entry fee cannot be negative");
+      return;
+    }
+    if (
+      formData.location.latitude === null ||
+      formData.location.longitude === null
+    ) {
+      alert("Please select a destination location on the map");
       return;
     }
 
@@ -67,14 +157,23 @@ export function AddDestinationModal({
       const payload = mapDestinationPayload({
         name: formData.name,
         description: formData.description,
-        entryFee: formData.entryFeeValue ?? 0,
+        entryFee: formData.entryFeeValue,
         mainCategory: formData.mainCategory,
         subCategory: formData.subCategory,
+        location: {
+          latitude: formData.location.latitude,
+          longitude: formData.location.longitude,
+          resolvedAddress: formData.location.resolvedAddress || undefined,
+        },
       });
 
       console.log("Creating destination:", payload);
 
-      await createDestination(payload);
+      const created = await createDestination(payload);
+
+      if (image.length > 0 && created?._id) {
+        await uploadImages(created._id, image);
+      }
 
       resetForm();
       onClose();
@@ -88,6 +187,8 @@ export function AddDestinationModal({
     resetForm();
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -145,29 +246,109 @@ export function AddDestinationModal({
           {/* Entry Fee */}
           <div>
             <label className="block text-sm font-semibold mb-2">
-              Entry Fee (₱)
+              Entry Fee <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
-              step="0.01"
               min="0"
+              step="0.01"
+              required
               value={formData.entryFeeValue ?? ""}
               onChange={(e) =>
                 setFormData({
                   ...formData,
                   entryFeeValue:
-                    e.target.value === ""
-                      ? null
-                      : parseFloat(e.target.value),
+                    e.target.value === "" ? null : Number(e.target.value),
                 })
               }
+              placeholder="0.00"
               className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-semibold mb-2">
+              Location <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-gray-600 mb-2">
+              Click on the map to pin the destination location.
+            </p>
+            <LocationMap
+              interactive
+              value={
+                formData.location.latitude !== null &&
+                formData.location.longitude !== null
+                  ? {
+                      latitude: formData.location.latitude,
+                      longitude: formData.location.longitude,
+                    }
+                  : null
+              }
+              onSelect={handleMapLocationSelect}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-600">
+                  Latitude
+                </p>
+                <p className="text-sm text-gray-900">
+                  {formData.location.latitude !== null
+                    ? formData.location.latitude.toFixed(6)
+                    : "Not selected"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-600">
+                  Longitude
+                </p>
+                <p className="text-sm text-gray-900">
+                  {formData.location.longitude !== null
+                    ? formData.location.longitude.toFixed(6)
+                    : "Not selected"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2">
+              <p className="text-xs font-semibold uppercase text-gray-600">
+                Resolved Address
+              </p>
+              <p className="text-sm text-gray-700">
+                {isResolvingAddress
+                  ? "Resolving address..."
+                  : formData.location.resolvedAddress || "No address resolved"}
+              </p>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <label className="block text-sm font-semibold mb-2">
+              Destination Images (max 4)
+            </label>
+
+            <input type="file" accept="image/*" multiple onChange={handleImageChange} />
+
+            <div className="grid grid-cols-4 gap-2 mt-3">
+              {image.map((img, index) => (
+                <div key={index} className="relative">
+                  <img
+                    src={URL.createObjectURL(img)}
+                    className="w-full h-20 object-cover rounded"
+                  />
+                  <button
+                    onClick={() => removeImage(index)}
+                    className="absolute top-0 right-0 bg-red-500 text-white text-xs px-1"
+                  >
+                    X
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Categories */}
           <div className="grid grid-cols-2 gap-6">
-            {/* Main */}
             <div>
               <label className="block text-sm font-semibold mb-3">
                 Main Category
@@ -191,7 +372,6 @@ export function AddDestinationModal({
               </div>
             </div>
 
-            {/* Sub */}
             <div>
               <label className="block text-sm font-semibold mb-3">
                 Sub Category

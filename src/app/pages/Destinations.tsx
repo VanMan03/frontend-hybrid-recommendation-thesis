@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { Search, Plus, Edit, Power } from "lucide-react";
+import { Search, Plus, Edit, Power, Eye } from "lucide-react";
 import { AddDestinationModal } from "@/app/components/AddDestinationModal";
 import { EditDestinationModal } from "@/app/components/EditDestinationModal";
+import { ViewDestinationModal } from "@/app/components/ViewDestinationModal";
 import { useAdminData, type Destination } from "@/app/context/AdminDataContext";
 
 export function Destinations() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingDestination, setEditingDestination] =
+    useState<Destination | null>(null);
+  const [viewingDestination, setViewingDestination] =
     useState<Destination | null>(null);
 
   const { destinations, loading, error, updateDestination } = useAdminData();
@@ -22,6 +25,11 @@ export function Destinations() {
       name: string;
       description: string;
       estimatedCost: number;
+      location: {
+        latitude: number;
+        longitude: number;
+        resolvedAddress?: string;
+      };
     }
   ) => {
     await updateDestination(destinationId, updates);
@@ -119,7 +127,6 @@ export function Destinations() {
                   <tr key={dest._id}>
                     <td className="px-6 py-4">
                       <p className="font-semibold">{dest.name}</p>
-                      <p className="text-xs text-gray-500">{dest.description}</p>
                     </td>
                     <td className="px-6 py-4">{dest.category}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">
@@ -139,6 +146,13 @@ export function Destinations() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => setViewingDestination(dest)}
+                          className="p-2 hover:bg-blue-50 rounded"
+                          title="View destination details"
+                        >
+                          <Eye className="size-4" />
+                        </button>
                         <button
                           onClick={() => setEditingDestination(dest)}
                           className="p-2 hover:bg-amber-50 rounded"
@@ -177,6 +191,12 @@ export function Destinations() {
           destination={editingDestination}
         />
       )}
+
+      <ViewDestinationModal
+        isOpen={!!viewingDestination}
+        onClose={() => setViewingDestination(null)}
+        destination={viewingDestination}
+      />
     </div>
   );
 }

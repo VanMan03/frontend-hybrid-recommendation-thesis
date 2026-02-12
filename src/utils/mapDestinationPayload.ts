@@ -5,15 +5,23 @@ interface MapInput {
   description: string;
   entryFee: number;
   mainCategory: MainCategory;
-  subCategory: SubCategory; // this is actually FEATURE
+  subCategory: SubCategory;
+  location: {
+    latitude: number;
+    longitude: number;
+    resolvedAddress?: string;
+  };
 }
 
 export function mapDestinationPayload(input: MapInput) {
   return {
     name: input.name,
     description: input.description,
-    category: input.mainCategory,          // ✅ category
-    features: [input.subCategory],          // ✅ FEATURES ARRAY
+    category: input.mainCategory,
+    features: [input.subCategory],
     estimatedCost: input.entryFee,
+    latitude: Number(input.location.latitude),
+    longitude: Number(input.location.longitude),
+    location: input.location,
   };
 }

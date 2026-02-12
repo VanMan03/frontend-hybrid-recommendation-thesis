@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { X, Save } from "lucide-react";
 import { type Destination } from "@/app/context/AdminDataContext";
+import { LocationMap } from "@/app/components/LocationMap";
 
 interface EditDestinationModalProps {
   isOpen: boolean;
@@ -11,6 +12,11 @@ interface EditDestinationModalProps {
       name: string;
       description: string;
       estimatedCost: number;
+      location: {
+        latitude: number;
+        longitude: number;
+        resolvedAddress?: string;
+      };
     }
   ) => Promise<void>;
   destination: Destination;
@@ -27,6 +33,12 @@ export function EditDestinationModal({
   const [estimatedCost, setEstimatedCost] = useState(
     destination.estimatedCost.toString()
   );
+  const [location, setLocation] = useState({
+    latitude: destination.location?.latitude ?? null,
+    longitude: destination.location?.longitude ?? null,
+    resolvedAddress: destination.location?.resolvedAddress ?? "",
+  });
+  const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -37,13 +49,62 @@ export function EditDestinationModal({
     setName(destination.name);
     setDescription(destination.description);
     setEstimatedCost(destination.estimatedCost.toString());
+    setLocation({
+      latitude: destination.location?.latitude ?? null,
+      longitude: destination.location?.longitude ?? null,
+      resolvedAddress: destination.location?.resolvedAddress ?? "",
+    });
   }, [destination, isOpen]);
+
+  const reverseGeocode = useCallback(async (latitude: number, longitude: number) => {
+    setIsResolvingAddress(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+      );
+
+      if (!response.ok) {
+        return "";
+      }
+
+      const data = (await response.json()) as { display_name?: string };
+      return data.display_name ?? "";
+    } catch (error) {
+      console.error("Failed to reverse geocode location:", error);
+      return "";
+    } finally {
+      setIsResolvingAddress(false);
+    }
+  }, []);
+
+  const handleMapLocationSelect = useCallback(async (next: {
+    latitude: number;
+    longitude: number;
+  }) => {
+    setLocation((prev) => ({
+      ...prev,
+      latitude: next.latitude,
+      longitude: next.longitude,
+    }));
+
+    const resolvedAddress = await reverseGeocode(next.latitude, next.longitude);
+
+    setLocation({
+      latitude: next.latitude,
+      longitude: next.longitude,
+      resolvedAddress,
+    });
+  }, [reverseGeocode]);
 
   if (!isOpen) return null;
 
   const handleSave = async () => {
     if (!name.trim() || !description.trim()) {
       alert("Please enter a destination name and description");
+      return;
+    }
+    if (location.latitude === null || location.longitude === null) {
+      alert("Please select a destination location on the map");
       return;
     }
 
@@ -54,6 +115,11 @@ export function EditDestinationModal({
         name: name.trim(),
         description: description.trim(),
         estimatedCost: Number(estimatedCost),
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          resolvedAddress: location.resolvedAddress || undefined,
+        },
       });
       onClose();
     } catch {
@@ -113,6 +179,56 @@ export function EditDestinationModal({
               onChange={(e) => setEstimatedCost(e.target.value)}
               className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2">
+              Location <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-gray-600 mb-2">
+              Click on the map to update the destination location.
+            </p>
+            <LocationMap
+              interactive
+              value={
+                location.latitude !== null && location.longitude !== null
+                  ? { latitude: location.latitude, longitude: location.longitude }
+                  : null
+              }
+              onSelect={handleMapLocationSelect}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-600">
+                  Latitude
+                </p>
+                <p className="text-sm text-gray-900">
+                  {location.latitude !== null
+                    ? location.latitude.toFixed(6)
+                    : "Not selected"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-600">
+                  Longitude
+                </p>
+                <p className="text-sm text-gray-900">
+                  {location.longitude !== null
+                    ? location.longitude.toFixed(6)
+                    : "Not selected"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2">
+              <p className="text-xs font-semibold uppercase text-gray-600">
+                Resolved Address
+              </p>
+              <p className="text-sm text-gray-700">
+                {isResolvingAddress
+                  ? "Resolving address..."
+                  : location.resolvedAddress || "No address resolved"}
+              </p>
+            </div>
           </div>
         </div>
 

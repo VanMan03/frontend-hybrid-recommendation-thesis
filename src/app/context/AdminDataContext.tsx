@@ -5,6 +5,7 @@ import React, {
   useState,
 } from "react";
 import { apiRequest } from "../../services/api";
+import { uploadDestinationImage } from "../../services/api";
 
 /* =======================
    TYPES (MATCH BACKEND)
@@ -17,7 +18,20 @@ export type Destination = {
   estimatedCost: number;
   category: string; // display only
   features: string[] | Record<string, number>; // display only
+  location?: {
+    latitude: number;
+    longitude: number;
+    resolvedAddress?: string;
+  };
   isActive: boolean;
+  image?: {
+    url: string;
+    publicId: string;
+  }[];
+  images?: {
+    url: string;
+    publicId: string;
+  }[];
 };
 
 export type CreateDestinationPayload = {
@@ -26,23 +40,34 @@ export type CreateDestinationPayload = {
   category: string;
   features: string[];
   estimatedCost: number;
+  latitude?: number;
+  longitude?: number;
+  location: {
+    latitude: number;
+    longitude: number;
+    resolvedAddress?: string;
+  };
 };
 
 
 
 type AdminDataContextType = {
   destinations: Destination[];
-   users: any[];                 
+  users: any[];                 
   itineraries: any[];
   loading: boolean;
   error: string | null;
-  createDestination: (data: CreateDestinationPayload) => Promise<void>;
+  createDestination: (data: CreateDestinationPayload) => Promise<Destination>;
+
   fetchDestinations: () => Promise<void>;
   updateDestination: (id: string, data: Partial<Destination>) => Promise<void>;
   deleteDestination: (id: string) => Promise<void>;
 
   fetchUsers: () => Promise<void>;
   fetchItineraries: () => Promise<void>;
+
+  uploadImages: (id: string, files: File[]) => Promise<void>;
+
 };
 
 /* =======================
@@ -91,23 +116,25 @@ export const AdminDataProvider: React.FC<
 
   /* -------- Create -------- */
   const createDestination = async (data: CreateDestinationPayload) => {
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      await apiRequest("/admin/destinations", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+    const created = await apiRequest("/admin/destinations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
 
-      await fetchDestinations();
-    } catch (err: any) {
-      setError(err.message || "Failed to create destination");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+    await fetchDestinations();
+    return created;
+  } catch (err: any) {
+    setError(err.message || "Failed to create destination");
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
+
 
 
   // Updates destination data
@@ -155,6 +182,18 @@ const updateDestination = async (
   await fetchDestinations();
 };
 
+const uploadImages = async (destinationId: string, files: File[]) => {
+  if (!files || files.length === 0) return;
+
+  for (const file of files) {
+    await uploadDestinationImage(destinationId, file);
+  }
+
+  await fetchDestinations();
+};
+
+
+
 
   /* -------- Initial Load -------- */
   useEffect(() => {
@@ -175,6 +214,7 @@ const updateDestination = async (
         deleteDestination,
         fetchUsers,
         fetchItineraries,
+        uploadImages,
       }}
     >
       {children}
