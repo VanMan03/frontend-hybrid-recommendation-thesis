@@ -145,7 +145,7 @@ export function Itineraries() {
 
       <div className="grid grid-cols-3 gap-6">
         {/* Itineraries Table */}
-        <div className={`${selected ? 'col-span-2' : 'col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden`}>
+        <div className={`${selected ? 'col-span-2' : 'col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto overflow-y-visible`}>
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
