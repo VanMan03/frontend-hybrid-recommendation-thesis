@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { type Destination } from '@/app/context/AdminDataContext';
 import { LocationMap } from "@/app/components/LocationMap";
+import { tourismCategories } from "@/app/data/tourismCategories";
 
 interface ViewDestinationModalProps {
   isOpen: boolean;
@@ -11,13 +12,40 @@ interface ViewDestinationModalProps {
 export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDestinationModalProps) {
   if (!isOpen || !destination) return null;
 
+  const toFeatureKey = (value: string) =>
+    value
+      .replace(/&/g, "")
+      .replace(/\s+/g, "")
+      .replace(/-/g, "")
+      .toLowerCase();
+  const featureLabelMap = new Map<string, string>(
+    Object.values(tourismCategories)
+      .flat()
+      .map((label) => [toFeatureKey(label), label])
+  );
+  const toLabel = (feature: string) => featureLabelMap.get(feature) ?? feature;
+
   const destinationImage = destination.images?.[0]?.url ?? destination.image?.[0]?.url;
-  const featuresText = Array.isArray(destination.features)
-    ? destination.features.join(', ')
+  const categoryText = Array.isArray(destination.category)
+    ? destination.category.join(", ")
+    : destination.category;
+  const featuresList = Array.isArray(destination.features)
+    ? destination.features.map(toLabel)
     : Object.entries(destination.features ?? {})
-        .filter(([, value]) => value > 0)
-        .map(([feature]) => feature)
-        .join(', ');
+        .flatMap(([category, value]) => {
+          if (typeof value === "number") {
+            return value > 0 ? [toLabel(category)] : [];
+          }
+
+          if (!value || typeof value !== "object" || Array.isArray(value)) {
+            return [];
+          }
+
+          return Object.entries(value)
+            .filter(([, score]) => typeof score === "number" && score > 0)
+            .map(([feature]) => toLabel(feature));
+        });
+  const featuresText = Array.from(new Set(featuresList)).join(', ');
   const destinationLocation = destination.location
     ? {
         latitude: destination.location.latitude,
@@ -67,7 +95,7 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-700">Category:</span>
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700">
-                  {destination.category}
+                  {categoryText}
                 </span>
               </div>
               <div className="flex items-center gap-2">

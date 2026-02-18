@@ -28,7 +28,7 @@ export function AddDestinationModal({
     name: "",
     description: "",
     mainCategory: "Nature Tourism" as MainCategory,
-    subCategory: tourismCategories["Nature Tourism"][0] as SubCategory,
+    subCategories: [tourismCategories["Nature Tourism"][0] as SubCategory],
     entryFeeValue: null as number | null,
     accessibility: "Moderate",
     location: {
@@ -39,17 +39,21 @@ export function AddDestinationModal({
   });
 
   const handleMainCategoryChange = (category: MainCategory) => {
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       mainCategory: category,
-      subCategory: tourismCategories[category][0] as SubCategory,
-    });
+    }));
   };
 
   const handleSubCategoryChange = (subCategory: SubCategory) => {
+    const isSelected = formData.subCategories.includes(subCategory);
+    const nextSubCategories = isSelected
+      ? formData.subCategories.filter((item) => item !== subCategory)
+      : [...formData.subCategories, subCategory];
+
     setFormData({
       ...formData,
-      subCategory,
+      subCategories: nextSubCategories,
     });
   };
 
@@ -73,7 +77,7 @@ export function AddDestinationModal({
       name: "",
       description: "",
       mainCategory: "Nature Tourism" as MainCategory,
-      subCategory: tourismCategories["Nature Tourism"][0] as SubCategory,
+      subCategories: [tourismCategories["Nature Tourism"][0] as SubCategory],
       entryFeeValue: null,
       accessibility: "Moderate",
       location: {
@@ -137,6 +141,10 @@ export function AddDestinationModal({
       alert("Please fill in all required fields");
       return;
     }
+    if (formData.subCategories.length === 0) {
+      alert("Please select at least one sub category");
+      return;
+    }
     if (formData.entryFeeValue === null || Number.isNaN(formData.entryFeeValue)) {
       alert("Please enter an entry fee");
       return;
@@ -159,7 +167,7 @@ export function AddDestinationModal({
         description: formData.description,
         entryFee: formData.entryFeeValue,
         mainCategory: formData.mainCategory,
-        subCategory: formData.subCategory,
+        subCategories: formData.subCategories,
         location: {
           latitude: formData.location.latitude,
           longitude: formData.location.longitude,
@@ -384,7 +392,7 @@ export function AddDestinationModal({
                       handleSubCategoryChange(sub as SubCategory)
                     }
                     className={`w-full p-2.5 rounded-lg border-2 text-left ${
-                      formData.subCategory === sub
+                      formData.subCategories.includes(sub as SubCategory)
                         ? "border-teal-600 bg-teal-50"
                         : "border-gray-200"
                     }`}
@@ -408,7 +416,7 @@ export function AddDestinationModal({
             >
               {formData.mainCategory}
             </span>
-            <p className="text-sm mt-1">→ {formData.subCategory}</p>
+            <p className="text-sm mt-1">→ {formData.subCategories.join(", ")}</p>
           </div>
         </div>
 

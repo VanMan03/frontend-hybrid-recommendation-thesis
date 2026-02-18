@@ -16,8 +16,8 @@ export type Destination = {
   name: string;
   description: string;
   estimatedCost: number;
-  category: string; // display only
-  features: string[] | Record<string, number>; // display only
+  category: string | string[]; // display only
+  features: string[] | Record<string, number | Record<string, number>>; // display only
   location?: {
     latitude: number;
     longitude: number;
@@ -37,8 +37,12 @@ export type Destination = {
 export type CreateDestinationPayload = {
   name: string;
   description: string;
-  category: string;
-  features: string[];
+  category: string | string[];
+  categories?: string[];
+  features:
+    | string[]
+    | Record<string, number>
+    | Record<string, string[] | Record<string, number>>;
   estimatedCost: number;
   latitude?: number;
   longitude?: number;
@@ -98,7 +102,7 @@ export const AdminDataProvider: React.FC<
       setLoading(true);
       setError(null);
 
-      let data: Destination[];
+      let data: any;
       try {
         // Prefer admin list when available (may include inactive records)
         data = await apiRequest("/admin/destinations");
@@ -106,7 +110,17 @@ export const AdminDataProvider: React.FC<
         // Fallback for backends that only expose public list route
         data = await apiRequest("/destinations");
       }
-      setDestinations(data);
+      const normalized = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.destinations)
+          ? data.destinations
+          : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
+
+      setDestinations(normalized);
     } catch (err: any) {
       setError(err.message || "Failed to load destinations");
     } finally {
@@ -164,10 +178,27 @@ const updateDestination = async (
 
   const fetchItineraries = async () => {
     try {
-      const data = await apiRequest("/itineraries");
-      setItineraries(data);
+      let data: any;
+      try {
+        data = await apiRequest("/admin/itineraries");
+      } catch {
+        data = await apiRequest("/itineraries");
+      }
+
+      const normalized = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.itineraries)
+          ? data.itineraries
+          : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
+
+      setItineraries(normalized);
     } catch (err) {
       console.error("Failed to fetch itineraries", err);
+      setItineraries([]);
     }
   };
 

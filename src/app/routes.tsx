@@ -3,7 +3,6 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import AdminLogin from "./auth/AdminLogin";
 import { Layout } from "./components/layout/Layout";
 import { Analytics } from "./pages/Analytics";
-import { Budget } from "./pages/Budget";
 import { Content } from "./pages/Content";
 import { Dashboard } from "./pages/Dashboard";
 import { Destinations } from "./pages/Destinations";
@@ -30,7 +29,6 @@ export const router = createBrowserRouter([
           { path: "destinations", Component: Destinations },
           { path: "users", Component: Users },
           { path: "itineraries", Component: Itineraries },
-          { path: "budget", Component: Budget },
           { path: "feedback", Component: Feedback },
           { path: "analytics", Component: Analytics },
           { path: "logs", Component: Logs },

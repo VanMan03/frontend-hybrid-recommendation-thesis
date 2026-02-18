@@ -4,6 +4,7 @@ import { AddDestinationModal } from "@/app/components/AddDestinationModal";
 import { EditDestinationModal } from "@/app/components/EditDestinationModal";
 import { ViewDestinationModal } from "@/app/components/ViewDestinationModal";
 import { useAdminData, type Destination } from "@/app/context/AdminDataContext";
+import { tourismCategories } from "@/app/data/tourismCategories";
 
 export function Destinations() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,15 +43,50 @@ export function Destinations() {
     });
   };
 
+  const toFeatureKey = (value: string) =>
+    value
+      .replace(/&/g, "")
+      .replace(/\s+/g, "")
+      .replace(/-/g, "")
+      .toLowerCase();
+
+  const featureLabelMap = new Map<string, string>(
+    Object.values(tourismCategories)
+      .flat()
+      .map((label) => [toFeatureKey(label), label])
+  );
+
   const formatFeatures = (features: Destination["features"]) => {
+    const toLabel = (feature: string) => featureLabelMap.get(feature) ?? feature;
+
     if (Array.isArray(features)) {
-      return features.join(", ");
+      return Array.from(new Set(features.map(toLabel))).join(", ");
     }
 
-    return Object.entries(features ?? {})
-      .filter(([, value]) => value > 0)
-      .map(([feature]) => feature)
-      .join(", ");
+    const normalizedFeatures = Object.entries(features ?? {})
+      .flatMap(([category, value]) => {
+        if (typeof value === "number") {
+          return value > 0 ? [toLabel(category)] : [];
+        }
+
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          return [];
+        }
+
+        return Object.entries(value)
+          .filter(([, score]) => typeof score === "number" && score > 0)
+          .map(([feature]) => toLabel(feature));
+      });
+
+    return Array.from(new Set(normalizedFeatures)).join(", ");
+  };
+
+  const formatCategory = (category: Destination["category"]) => {
+    if (Array.isArray(category)) {
+      return category.join(", ");
+    }
+
+    return category;
   };
 
   return (
@@ -128,7 +164,7 @@ export function Destinations() {
                     <td className="px-6 py-4">
                       <p className="font-semibold">{dest.name}</p>
                     </td>
-                    <td className="px-6 py-4">{dest.category}</td>
+                    <td className="px-6 py-4">{formatCategory(dest.category)}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {formatFeatures(dest.features) || "No features"}
                     </td>

@@ -1,12 +1,122 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, Eye, X } from 'lucide-react';
 import { useAdminData } from '@/app/context/AdminDataContext';
 
 export function Itineraries() {
-  const { itineraries } = useAdminData();
-  const [selectedItinerary, setSelectedItinerary] = useState<number | null>(null);
+  const { itineraries, destinations, fetchItineraries, fetchDestinations, loading, error } = useAdminData();
+  const [selectedItinerary, setSelectedItinerary] = useState<string | null>(null);
+  const [expandedDestinationsId, setExpandedDestinationsId] = useState<string | null>(null);
 
-  const selected = itineraries.find(it => it.id === selectedItinerary) || null;
+  useEffect(() => {
+    fetchDestinations();
+    fetchItineraries();
+  }, []);
+
+  const destinationNameById = useMemo(() => {
+  const lookup = new Map<string, string>();
+
+  const normalizeId = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') return val.trim();
+    if (typeof val === 'object') {
+      if (val.$oid) return val.$oid;
+      if (val._id) return String(val._id);
+      if (val.id) return String(val.id);
+    }
+    return String(val);
+  };
+
+  destinations.forEach((d: any) => {
+    const id = normalizeId(d._id || d.id);
+    if (id && d.name) {
+      lookup.set(id, d.name);
+    }
+  });
+
+  return lookup;
+}, [destinations]);
+
+
+  const mappedItineraries = useMemo(
+    () =>
+      itineraries.map((itinerary: any, index: number) => {
+        const id = String(itinerary?.id || itinerary?._id || `itinerary-${index + 1}`);
+        const user =
+          itinerary?.user?.name ||
+          itinerary?.user?.fullName ||
+          itinerary?.user?.email ||
+          itinerary?.userName ||
+          itinerary?.user ||
+          'Unknown User';
+        const budgetRange = itinerary?.budgetRange || itinerary?.budget || itinerary?.budgetTier || 'N/A';
+        const rawDestinations =
+          itinerary?.destinations ||
+          itinerary?.destinationIds ||
+          itinerary?.destination_ids ||
+          itinerary?.destinationNames ||
+          itinerary?.places ||
+          [];
+
+        const isObjectId = (value: string) => /^[a-f0-9]{24}$/i.test(value);
+        const toId = (value: any): string => {
+          if (!value) return '';
+          if (typeof value === 'string') return value.trim();
+          if (typeof value === 'object') {
+            if (typeof value.$oid === 'string') return value.$oid.trim();
+            if (typeof value._id === 'string') return value._id.trim();
+            if (typeof value.id === 'string') return value.id.trim();
+            if (typeof value.destinationId === 'string') return value.destinationId.trim();
+            if (typeof value.destination_id === 'string') return value.destination_id.trim();
+            if (value.destination) return toId(value.destination);
+          }
+          return String(value).trim();
+        };
+
+        const resolveDestinationName = (value: any): string => {
+  if (!value) return '';
+
+  // ✅ CASE 1: Full destination object
+  if (typeof value === 'object') {
+    if (value.name) return value.name;
+    if (value.destination?.name) return value.destination.name;
+    if (value.place?.name) return value.place.name;
+  }
+
+  // ✅ CASE 2: ID string
+  const id = typeof value === 'string' ? value.trim() : String(value);
+  return destinationNameById.get(id) || '';
+};
+
+
+
+       const destinationList = Array.isArray(rawDestinations)
+  ? rawDestinations
+      .map((d: any) => resolveDestinationName(d))
+      .filter(name => typeof name === 'string' && name.length > 0)
+      .join(', ')
+  : resolveDestinationName(rawDestinations);
+
+        const dateValue = itinerary?.dateGenerated || itinerary?.createdAt || itinerary?.updatedAt;
+        const parsedDate = dateValue ? new Date(dateValue) : null;
+        const dateGenerated =
+          parsedDate && !Number.isNaN(parsedDate.getTime())
+            ? parsedDate.toLocaleDateString()
+            : dateValue
+              ? String(dateValue)
+              : 'N/A';
+
+        return {
+          id,
+          user,
+          budgetRange,
+          destinations: destinationList || 'N/A',
+          dateGenerated,
+        };
+      }),
+    [itineraries, destinationNameById]
+  );
+
+  const selected = mappedItineraries.find((itinerary) => itinerary.id === selectedItinerary) || null;
 
   return (
     <div className="space-y-6">
@@ -14,6 +124,12 @@ export function Itineraries() {
         <h1 className="text-3xl font-bold text-gray-900">Itinerary Monitoring</h1>
         <p className="text-gray-600 mt-1">Track and manage generated travel itineraries</p>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -38,30 +154,78 @@ export function Itineraries() {
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Budget Range</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Destinations</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Date</th>
-                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Status</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {itineraries.map((itinerary) => (
+              {!loading && mappedItineraries.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                    No itineraries found.
+                  </td>
+                </tr>
+              )}
+              {mappedItineraries.map((itinerary) => (
                 <tr key={itinerary.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-mono text-sm text-gray-900">{itinerary.id}</td>
                   <td className="px-6 py-4 text-gray-900">{itinerary.user}</td>
                   <td className="px-6 py-4 text-gray-900 text-sm">{itinerary.budgetRange}</td>
-                  <td className="px-6 py-4 text-gray-600 text-sm">{itinerary.destinations}</td>
+                  <td className="px-6 py-4 text-gray-600 text-sm w-64 max-w-64">
+                    {(() => {
+                      const destinationItems = String(itinerary.destinations || '')
+                        .split(',')
+                        .map((d) => d.trim())
+                        .filter(Boolean);
+                      const visible = destinationItems.slice(0, 2);
+                      const remainingCount = Math.max(destinationItems.length - visible.length, 0);
+                      const isExpanded = expandedDestinationsId === itinerary.id;
+
+                      return (
+                        <div className="relative min-w-0">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="block max-w-[12rem] truncate">{visible.join(', ') || 'N/A'}</span>
+                            {remainingCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedDestinationsId(isExpanded ? null : String(itinerary.id))
+                                }
+                                className="text-teal-600 text-xs whitespace-nowrap hover:text-teal-700"
+                              >
+                                +{remainingCount} more
+                              </button>
+                            )}
+                          </div>
+                          {remainingCount > 0 && (
+                            <div
+                              className={`absolute left-0 top-full mt-1 z-20 w-64 rounded-lg border border-gray-200 bg-white shadow-lg p-2 ${
+                                isExpanded ? 'block' : 'hidden'
+                              }`}
+                            >
+                              <div className="max-h-40 overflow-y-auto space-y-1">
+                                {destinationItems.map((destinationName, idx) => (
+                                  <div key={`${itinerary.id}-${idx}`} className="text-xs text-gray-700 px-2 py-1 rounded bg-gray-50">
+                                    {destinationName}
+                                  </div>
+                                ))}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedDestinationsId(null)}
+                                className="mt-2 text-[11px] text-teal-600 hover:text-teal-700"
+                              >
+                                Show less
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">{itinerary.dateGenerated}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      itinerary.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                      itinerary.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {itinerary.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
                     <button 
-                      onClick={() => setSelectedItinerary(itinerary.id)}
+                      onClick={() => setSelectedItinerary(String(itinerary.id))}
                       className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                       title="View Details"
                     >
@@ -106,11 +270,14 @@ export function Itineraries() {
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase">Included Destinations</label>
                 <div className="mt-2 space-y-2">
-                  {selected.destinations.split(', ').map((dest, idx) => (
+                  {selected.destinations
+                    .split(', ')
+                    .filter(Boolean)
+                    .map((dest, idx) => (
                     <div key={idx} className="px-3 py-2 bg-teal-50 text-teal-700 rounded-lg text-sm">
                       {dest}
                     </div>
-                  ))}
+                    ))}
                 </div>
               </div>
               
@@ -119,18 +286,6 @@ export function Itineraries() {
                 <p className="mt-1 text-sm text-gray-900">{selected.dateGenerated}</p>
               </div>
               
-              <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase">Status</label>
-                <p className="mt-1">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    selected.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                    selected.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                    'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {selected.status}
-                  </span>
-                </p>
-              </div>
             </div>
           </div>
         )}
