@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Search, Plus, Edit, Power, Eye } from "lucide-react";
+import { Search, Plus, Edit, Power, Eye, Tag, FolderTree } from "lucide-react";
 import { AddDestinationModal } from "@/app/components/AddDestinationModal";
+import { EditCategoryModal } from "@/app/components/EditCategoryModal";
 import { EditDestinationModal } from "@/app/components/EditDestinationModal";
+import { ManageDestinationTaxonomyModal } from "@/app/components/ManageDestinationTaxonomyModal";
 import { ViewDestinationModal } from "@/app/components/ViewDestinationModal";
 import { useAdminData, type Destination } from "@/app/context/AdminDataContext";
 import { tourismCategories } from "@/app/data/tourismCategories";
@@ -9,7 +11,10 @@ import { tourismCategories } from "@/app/data/tourismCategories";
 export function Destinations() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isTaxonomyModalOpen, setIsTaxonomyModalOpen] = useState(false);
   const [editingDestination, setEditingDestination] =
+    useState<Destination | null>(null);
+  const [editingCategoryDestination, setEditingCategoryDestination] =
     useState<Destination | null>(null);
   const [viewingDestination, setViewingDestination] =
     useState<Destination | null>(null);
@@ -19,6 +24,18 @@ export function Destinations() {
   const filteredDestinations = destinations.filter((dest) =>
     dest.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleEditCategorySave = async (
+    destinationId: string,
+    updates: {
+      category: string[];
+      categories: string[];
+      features: Record<string, string[]>;
+    }
+  ) => {
+    await updateDestination(destinationId, updates);
+    setEditingCategoryDestination(null);
+  };
 
   const handleEditDestinationSave = async (
     destinationId: string,
@@ -65,11 +82,15 @@ export function Destinations() {
 
     const normalizedFeatures = Object.entries(features ?? {})
       .flatMap(([category, value]) => {
+        if (Array.isArray(value)) {
+          return value.map((feature) => toLabel(feature));
+        }
+
         if (typeof value === "number") {
           return value > 0 ? [toLabel(category)] : [];
         }
 
-        if (!value || typeof value !== "object" || Array.isArray(value)) {
+        if (!value || typeof value !== "object") {
           return [];
         }
 
@@ -100,13 +121,22 @@ export function Destinations() {
             Manage destinations stored in the system
           </p>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-        >
-          <Plus className="size-5" />
-          Add Destination
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsTaxonomyModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-teal-200 text-teal-700 rounded-lg hover:bg-teal-50"
+          >
+            <FolderTree className="size-5" />
+            Manage Categories
+          </button>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+          >
+            <Plus className="size-5" />
+            Add Destination
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border p-4">
@@ -192,8 +222,16 @@ export function Destinations() {
                         <button
                           onClick={() => setEditingDestination(dest)}
                           className="p-2 hover:bg-amber-50 rounded"
+                          title="Edit destination details"
                         >
                           <Edit className="size-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingCategoryDestination(dest)}
+                          className="p-2 hover:bg-teal-50 rounded"
+                          title="Edit category and features"
+                        >
+                          <Tag className="size-4" />
                         </button>
                         <button
                           onClick={() => handleToggleDestinationStatus(dest)}
@@ -218,6 +256,19 @@ export function Destinations() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
+      <ManageDestinationTaxonomyModal
+        isOpen={isTaxonomyModalOpen}
+        onClose={() => setIsTaxonomyModalOpen(false)}
+      />
+
+      {editingCategoryDestination && (
+        <EditCategoryModal
+          isOpen={!!editingCategoryDestination}
+          onClose={() => setEditingCategoryDestination(null)}
+          onSave={handleEditCategorySave}
+          destination={editingCategoryDestination}
+        />
+      )}
 
       {editingDestination && (
         <EditDestinationModal

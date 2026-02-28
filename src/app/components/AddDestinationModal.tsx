@@ -1,14 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { X, Save } from "lucide-react";
-import {
-  tourismCategories,
-  getCategoryColor,
-  type MainCategory,
-  type SubCategory,
-} from "@/app/data/tourismCategories";
+import { getCategoryColor, tourismCategories } from "@/app/data/tourismCategories";
 import { useAdminData } from "@/app/context/AdminDataContext";
-import { mapDestinationPayload } from "@/utils/mapDestinationPayload";
 import { LocationMap } from "@/app/components/LocationMap";
+import { useDestinationTaxonomy } from "@/app/hooks/useDestinationTaxonomy";
 
 interface AddDestinationModalProps {
   isOpen: boolean;
@@ -20,6 +15,8 @@ export function AddDestinationModal({
   onClose,
 }: AddDestinationModalProps) {
   const { createDestination, uploadImages } = useAdminData();
+  const { taxonomy, categories, refetch } = useDestinationTaxonomy();
+  const defaultCategory = categories[0] ?? "Nature Tourism";
 
   const [image, setImages] = useState<File[]>([]);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
@@ -27,8 +24,8 @@ export function AddDestinationModal({
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    mainCategory: "Nature Tourism" as MainCategory,
-    subCategories: [tourismCategories["Nature Tourism"][0] as SubCategory],
+    activeCategory: defaultCategory,
+    selectedFeaturesByCategory: {} as Record<string, string[]>,
     entryFeeValue: null as number | null,
     accessibility: "Moderate",
     location: {
@@ -38,22 +35,67 @@ export function AddDestinationModal({
     },
   });
 
-  const handleMainCategoryChange = (category: MainCategory) => {
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    void refetch();
+  }, [isOpen, refetch]);
+
+  useEffect(() => {
+    if (!categories.length) {
+      return;
+    }
+
+    setFormData((prev) => {
+      const nextActiveCategory = categories.includes(prev.activeCategory)
+        ? prev.activeCategory
+        : categories[0];
+      const nextSelectedFeaturesByCategory = Object.fromEntries(
+        Object.entries(prev.selectedFeaturesByCategory)
+          .filter(([category]) => categories.includes(category))
+          .map(([category, features]) => [
+            category,
+            features.filter((feature) => (taxonomy[category] ?? []).includes(feature)),
+          ])
+          .filter(([, features]) => features.length > 0)
+      );
+
+      return {
+        ...prev,
+        activeCategory: nextActiveCategory,
+        selectedFeaturesByCategory: nextSelectedFeaturesByCategory,
+      };
+    });
+  }, [categories, taxonomy]);
+
+  const handleMainCategoryChange = (category: string) => {
     setFormData((prev) => ({
       ...prev,
-      mainCategory: category,
+      activeCategory: category,
     }));
   };
 
-  const handleSubCategoryChange = (subCategory: SubCategory) => {
-    const isSelected = formData.subCategories.includes(subCategory);
-    const nextSubCategories = isSelected
-      ? formData.subCategories.filter((item) => item !== subCategory)
-      : [...formData.subCategories, subCategory];
+  const handleSubCategoryChange = (subCategory: string) => {
+    setFormData((prev) => {
+      const currentFeatures = prev.selectedFeaturesByCategory[prev.activeCategory] ?? [];
+      const isSelected = currentFeatures.includes(subCategory);
+      const nextFeatures = isSelected
+        ? currentFeatures.filter((item) => item !== subCategory)
+        : [...currentFeatures, subCategory];
 
-    setFormData({
-      ...formData,
-      subCategories: nextSubCategories,
+      const nextSelectedFeaturesByCategory = { ...prev.selectedFeaturesByCategory };
+      if (nextFeatures.length === 0) {
+        delete nextSelectedFeaturesByCategory[prev.activeCategory];
+      } else {
+        nextSelectedFeaturesByCategory[prev.activeCategory] = nextFeatures;
+      }
+
+      return {
+        ...prev,
+        selectedFeaturesByCategory: nextSelectedFeaturesByCategory,
+      };
     });
   };
 
@@ -73,11 +115,12 @@ export function AddDestinationModal({
   };
 
   const resetForm = () => {
+    const nextDefaultCategory = categories[0] ?? "Nature Tourism";
     setFormData({
       name: "",
       description: "",
-      mainCategory: "Nature Tourism" as MainCategory,
-      subCategories: [tourismCategories["Nature Tourism"][0] as SubCategory],
+      activeCategory: nextDefaultCategory,
+      selectedFeaturesByCategory: {},
       entryFeeValue: null,
       accessibility: "Moderate",
       location: {
@@ -141,8 +184,16 @@ export function AddDestinationModal({
       alert("Please fill in all required fields");
       return;
     }
-    if (formData.subCategories.length === 0) {
-      alert("Please select at least one sub category");
+
+    const featuresByCategory = Object.fromEntries(
+      Object.entries(formData.selectedFeaturesByCategory)
+        .map(([category, features]) => [category, Array.from(new Set(features))])
+        .filter(([, features]) => features.length > 0)
+    );
+    const selectedCategories = Object.keys(featuresByCategory);
+
+    if (selectedCategories.length === 0) {
+      alert("Please select at least one feature from any category");
       return;
     }
     if (formData.entryFeeValue === null || Number.isNaN(formData.entryFeeValue)) {
@@ -162,20 +213,21 @@ export function AddDestinationModal({
     }
 
     try {
-      const payload = mapDestinationPayload({
+      const payload = {
         name: formData.name,
         description: formData.description,
-        entryFee: formData.entryFeeValue,
-        mainCategory: formData.mainCategory,
-        subCategories: formData.subCategories,
+        category: selectedCategories,
+        categories: selectedCategories,
+        features: featuresByCategory,
+        estimatedCost: formData.entryFeeValue,
+        latitude: Number(formData.location.latitude),
+        longitude: Number(formData.location.longitude),
         location: {
           latitude: formData.location.latitude,
           longitude: formData.location.longitude,
           resolvedAddress: formData.location.resolvedAddress || undefined,
         },
-      });
-
-      console.log("Creating destination:", payload);
+      };
 
       const created = await createDestination(payload);
 
@@ -201,7 +253,6 @@ export function AddDestinationModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white">
           <div>
             <h2 className="text-xl font-bold text-gray-900">
@@ -219,9 +270,7 @@ export function AddDestinationModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6 space-y-6">
-          {/* Name */}
           <div>
             <label className="block text-sm font-semibold mb-2">
               Destination Name <span className="text-red-500">*</span>
@@ -236,7 +285,6 @@ export function AddDestinationModal({
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-sm font-semibold mb-2">
               Description <span className="text-red-500">*</span>
@@ -251,7 +299,6 @@ export function AddDestinationModal({
             />
           </div>
 
-          {/* Entry Fee */}
           <div>
             <label className="block text-sm font-semibold mb-2">
               Entry Fee <span className="text-red-500">*</span>
@@ -274,7 +321,6 @@ export function AddDestinationModal({
             />
           </div>
 
-          {/* Location */}
           <div>
             <label className="block text-sm font-semibold mb-2">
               Location <span className="text-red-500">*</span>
@@ -329,7 +375,6 @@ export function AddDestinationModal({
             </div>
           </div>
 
-          {/* Image Upload */}
           <div>
             <label className="block text-sm font-semibold mb-2">
               Destination Images (max 4)
@@ -355,26 +400,28 @@ export function AddDestinationModal({
             </div>
           </div>
 
-          {/* Categories */}
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-semibold mb-3">
                 Main Category
               </label>
               <div className="space-y-2 border rounded-lg p-3 max-h-64 overflow-y-auto">
-                {Object.keys(tourismCategories).map((category) => (
+                {categories.map((category) => (
                   <button
                     key={category}
-                    onClick={() =>
-                      handleMainCategoryChange(category as MainCategory)
-                    }
+                    onClick={() => handleMainCategoryChange(category)}
                     className={`w-full p-2.5 rounded-lg border-2 text-left ${
-                      formData.mainCategory === category
+                      formData.activeCategory === category
                         ? "border-teal-600 bg-teal-50"
                         : "border-gray-200"
                     }`}
                   >
-                    {category}
+                    <div className="flex items-center justify-between">
+                      <span>{category}</span>
+                      <span className="text-xs text-gray-500">
+                        {(formData.selectedFeaturesByCategory[category] ?? []).length}
+                      </span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -385,14 +432,12 @@ export function AddDestinationModal({
                 Sub Category
               </label>
               <div className="space-y-2 border rounded-lg p-3 max-h-64 overflow-y-auto">
-                {tourismCategories[formData.mainCategory].map((sub) => (
+                {(taxonomy[formData.activeCategory] ?? []).map((sub) => (
                   <button
                     key={sub}
-                    onClick={() =>
-                      handleSubCategoryChange(sub as SubCategory)
-                    }
+                    onClick={() => handleSubCategoryChange(sub)}
                     className={`w-full p-2.5 rounded-lg border-2 text-left ${
-                      formData.subCategories.includes(sub as SubCategory)
+                      (formData.selectedFeaturesByCategory[formData.activeCategory] ?? []).includes(sub)
                         ? "border-teal-600 bg-teal-50"
                         : "border-gray-200"
                     }`}
@@ -404,23 +449,35 @@ export function AddDestinationModal({
             </div>
           </div>
 
-          {/* Preview */}
           <div className="bg-teal-50 border rounded-lg p-4">
             <p className="text-xs font-semibold uppercase mb-2">
-              Selected Category
+              Selected Categories and Features
             </p>
-            <span
-              className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(
-                formData.mainCategory
-              )}`}
-            >
-              {formData.mainCategory}
-            </span>
-            <p className="text-sm mt-1">→ {formData.subCategories.join(", ")}</p>
+            <div className="space-y-2">
+              {Object.entries(formData.selectedFeaturesByCategory).length === 0 ? (
+                <p className="text-sm text-gray-700">No features selected</p>
+              ) : (
+                Object.entries(formData.selectedFeaturesByCategory).map(
+                  ([category, features]) => (
+                    <div key={category}>
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                          category in tourismCategories
+                            ? getCategoryColor(category as keyof typeof tourismCategories)
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {category}
+                      </span>
+                      <p className="text-sm mt-1">{"->"} {features.join(", ")}</p>
+                    </div>
+                  )
+                )
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={handleClose}

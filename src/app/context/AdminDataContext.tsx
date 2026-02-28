@@ -17,7 +17,9 @@ export type Destination = {
   description: string;
   estimatedCost: number;
   category: string | string[]; // display only
-  features: string[] | Record<string, number | Record<string, number>>; // display only
+  features:
+    | string[]
+    | Record<string, string[] | number | Record<string, number>>; // display only
   location?: {
     latitude: number;
     longitude: number;
@@ -160,11 +162,7 @@ const updateDestination = async (
     method: "PUT",
     body: JSON.stringify(updates),
   });
-  setDestinations((prev) =>
-    prev.map((destination) =>
-      destination._id === id ? { ...destination, ...updates } : destination
-    )
-  );
+  await fetchDestinations();
 };
 
   const fetchUsers = async () => {
