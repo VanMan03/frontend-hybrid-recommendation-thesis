@@ -149,7 +149,6 @@ export function Itineraries() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">ID</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">User</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Budget Range</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Destinations</th>
@@ -160,14 +159,13 @@ export function Itineraries() {
             <tbody className="divide-y divide-gray-200">
               {!loading && mappedItineraries.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
                     No itineraries found.
                   </td>
                 </tr>
               )}
               {mappedItineraries.map((itinerary) => (
                 <tr key={itinerary.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-mono text-sm text-gray-900">{itinerary.id}</td>
                   <td className="px-6 py-4 text-gray-900">{itinerary.user}</td>
                   <td className="px-6 py-4 text-gray-900 text-sm">{itinerary.budgetRange}</td>
                   <td className="px-6 py-4 text-gray-600 text-sm w-64 max-w-64">
@@ -252,11 +250,6 @@ export function Itineraries() {
             </div>
             
             <div className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase">Itinerary ID</label>
-                <p className="mt-1 text-sm font-mono text-gray-900">{selected.id}</p>
-              </div>
-              
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase">User</label>
                 <p className="mt-1 text-sm text-gray-900">{selected.user}</p>

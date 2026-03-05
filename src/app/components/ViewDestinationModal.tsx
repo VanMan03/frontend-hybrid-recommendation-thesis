@@ -142,7 +142,17 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
                 </div>
                 <p className="text-sm text-gray-700">
                   <span className="font-semibold text-gray-900">Address:</span>{" "}
-                  {destination.location?.resolvedAddress || "Not available"}
+                  {(() => {
+                    const address = destination.location?.resolvedAddress;
+                    if (!address) return "Not available";
+                    if (typeof address === 'string') return address;
+                    if (typeof address === 'object' && address !== null) {
+                      return address.fullAddress || 
+                             `${address.barangay || ''}, ${address.city || ''}, ${address.province || ''}, ${address.country || ''}`.replace(/^,|,$/g, '').trim() ||
+                             JSON.stringify(address);
+                    }
+                    return String(address);
+                  })()}
                 </p>
               </>
             ) : (

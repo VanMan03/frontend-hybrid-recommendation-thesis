@@ -57,7 +57,6 @@ export function Users() {
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">User ID</th>
               <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Name</th>
               <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Activity Level</th>
               <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Itineraries</th>
@@ -78,7 +77,6 @@ export function Users() {
 
               return (
               <tr key={userId} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 font-mono text-sm text-gray-900">#{userId}</td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold">

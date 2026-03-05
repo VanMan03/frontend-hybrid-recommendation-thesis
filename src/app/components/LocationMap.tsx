@@ -1,10 +1,5 @@
-import { useEffect, useRef } from "react";
-
-declare global {
-  interface Window {
-    L?: any;
-  }
-}
+import { useEffect, useRef, useState } from "react";
+import mapboxgl from "mapbox-gl";
 
 type LocationValue = {
   latitude: number;
@@ -19,50 +14,7 @@ type LocationMapProps = {
 };
 
 const DEFAULT_CENTER: LocationValue = { latitude: 12.8797, longitude: 121.774 };
-const LEAFLET_CSS_ID = "leaflet-css";
-const LEAFLET_SCRIPT_ID = "leaflet-script";
-const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_SCRIPT_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-
-let leafletLoader: Promise<any> | null = null;
-
-const ensureLeafletCss = () => {
-  if (document.getElementById(LEAFLET_CSS_ID)) return;
-  const link = document.createElement("link");
-  link.id = LEAFLET_CSS_ID;
-  link.rel = "stylesheet";
-  link.href = LEAFLET_CSS_URL;
-  link.crossOrigin = "";
-  document.head.appendChild(link);
-};
-
-const loadLeaflet = () => {
-  if (window.L) return Promise.resolve(window.L);
-  if (leafletLoader) return leafletLoader;
-
-  leafletLoader = new Promise((resolve, reject) => {
-    ensureLeafletCss();
-
-    const existing = document.getElementById(LEAFLET_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.L));
-      existing.addEventListener("error", () =>
-        reject(new Error("Failed to load Leaflet script"))
-      );
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = LEAFLET_SCRIPT_ID;
-    script.src = LEAFLET_SCRIPT_URL;
-    script.async = true;
-    script.onload = () => resolve(window.L);
-    script.onerror = () => reject(new Error("Failed to load Leaflet script"));
-    document.body.appendChild(script);
-  });
-
-  return leafletLoader;
-};
+const MAPBOX_STYLE_URL = "mapbox://styles/mapbox/streets-v12";
 
 export function LocationMap({
   value,
@@ -71,60 +23,150 @@ export function LocationMap({
   heightClassName = "h-72",
 }: LocationMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const isMountedRef = useRef(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-    loadLeaflet()
-      .then((L) => {
-        if (!mounted || !containerRef.current || mapRef.current) return;
+  useEffect(() => {
+    const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
-        const center = value ?? DEFAULT_CENTER;
-        const map = L.map(containerRef.current, {
-          zoomControl: interactive,
-          dragging: interactive,
-          scrollWheelZoom: interactive,
-          doubleClickZoom: interactive,
-          boxZoom: interactive,
-          keyboard: interactive,
-          touchZoom: interactive,
-        }).setView([center.latitude, center.longitude], value ? 13 : 6);
+    if (!MAPBOX_ACCESS_TOKEN) {
+      setError("Mapbox access token is missing. Please set VITE_MAPBOX_ACCESS_TOKEN in your .env file.");
+      return;
+    }
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        }).addTo(map);
+    mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
 
-        if (value) {
-          markerRef.current = L.marker([value.latitude, value.longitude]).addTo(map);
+    if (!containerRef.current || mapRef.current) {
+      return;
+    }
+
+    const container = containerRef.current;
+    if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+      const timeoutId = setTimeout(() => {
+        if (container.offsetWidth > 0 && container.offsetHeight > 0 && !mapRef.current) {
+          initializeMap();
         }
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
 
-        if (interactive && onSelect) {
-          map.on("click", (event: any) => {
-            const next = {
-              latitude: Number(event.latlng.lat),
-              longitude: Number(event.latlng.lng),
-            };
+    initializeMap();
 
-            if (!markerRef.current) {
-              markerRef.current = L.marker([next.latitude, next.longitude]).addTo(map);
-            } else {
-              markerRef.current.setLatLng([next.latitude, next.longitude]);
-            }
+    function initializeMap() {
+      if (mapRef.current) return;
 
-            onSelect(next);
-          });
-        }
+      setError(null);
+      setIsInitializing(true);
+      const center = value ?? DEFAULT_CENTER;
+
+      try {
+        const map = new mapboxgl.Map({
+          container: container,
+          style: MAPBOX_STYLE_URL,
+          center: [center.longitude, center.latitude],
+          zoom: value ? 13 : 6,
+          interactive: interactive,
+          attributionControl: true,
+        });
 
         mapRef.current = map;
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+
+        if (interactive) {
+          map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        }
+
+        map.on('load', () => {
+          if (!isMountedRef.current) return;
+          setMapLoaded(true);
+          setIsInitializing(false);
+          map.resize();
+
+          if (value) {
+            const marker = new mapboxgl.Marker({
+              draggable: interactive,
+            })
+              .setLngLat([value.longitude, value.latitude])
+              .addTo(map);
+
+            markerRef.current = marker;
+
+            if (interactive && onSelect) {
+              marker.on('dragend', () => {
+                const lngLat = marker.getLngLat();
+                onSelect({
+                  latitude: lngLat.lat,
+                  longitude: lngLat.lng,
+                });
+              });
+            }
+          }
+
+          if (interactive && onSelect) {
+            map.on('click', (event) => {
+              const lngLat = event.lngLat;
+
+              if (!markerRef.current) {
+                const marker = new mapboxgl.Marker({
+                  draggable: true,
+                })
+                  .setLngLat([lngLat.lng, lngLat.lat])
+                  .addTo(map);
+
+                markerRef.current = marker;
+
+                marker.on('dragend', () => {
+                  const markerLngLat = marker.getLngLat();
+                  onSelect({
+                    latitude: markerLngLat.lat,
+                    longitude: markerLngLat.lng,
+                  });
+                });
+              } else {
+                markerRef.current.setLngLat([lngLat.lng, lngLat.lat]);
+              }
+
+              onSelect({
+                latitude: lngLat.lat,
+                longitude: lngLat.lng,
+              });
+            });
+          }
+        });
+
+        map.on('error', (e) => {
+          console.error('Mapbox error:', e);
+          if (!isMountedRef.current) return;
+          setIsInitializing(false);
+          const mapboxMessage =
+            e && typeof e === "object" && "error" in e && e.error && typeof e.error === "object" && "message" in e.error
+              ? String(e.error.message)
+              : null;
+          setError(
+            mapboxMessage
+              ? `Failed to load map: ${mapboxMessage}`
+              : 'Failed to load map. Check Mapbox token/domain config and internet connection.'
+          );
+        });
+
+      } catch (err) {
+        console.error('Map initialization error:', err);
+        setError('Failed to initialize map. Please check your Mapbox configuration.');
+        setIsInitializing(false);
+      }
+    }
 
     return () => {
-      mounted = false;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -133,27 +175,67 @@ export function LocationMap({
     };
   }, [interactive, onSelect]);
 
+  // Update marker position when value changes
   useEffect(() => {
+    if (!mapLoaded || !value || !mapRef.current) return;
+
     const map = mapRef.current;
-    const marker = markerRef.current;
-    const L = window.L;
+    
+    if (!markerRef.current) {
+      const marker = new mapboxgl.Marker({
+        draggable: interactive,
+      })
+        .setLngLat([value.longitude, value.latitude])
+        .addTo(map);
+      
+      markerRef.current = marker;
 
-    if (!map || !L || !value) return;
-
-    const nextLatLng = [value.latitude, value.longitude] as [number, number];
-    if (!marker) {
-      markerRef.current = L.marker(nextLatLng).addTo(map);
+      if (interactive && onSelect) {
+        marker.on('dragend', () => {
+          const lngLat = marker.getLngLat();
+          onSelect({
+            latitude: lngLat.lat,
+            longitude: lngLat.lng,
+          });
+        });
+      }
     } else {
-      marker.setLatLng(nextLatLng);
+      markerRef.current.setLngLat([value.longitude, value.latitude]);
     }
-    map.setView(nextLatLng, Math.max(map.getZoom(), 13));
-  }, [value]);
+
+    map.flyTo({
+      center: [value.longitude, value.latitude],
+      zoom: Math.max(map.getZoom(), 13),
+      essential: true,
+    });
+  }, [value, mapLoaded, interactive, onSelect]);
 
   return (
-    <div
-      ref={containerRef}
-      className={`w-full rounded-lg border border-gray-300 ${heightClassName}`}
-      aria-label={interactive ? "Location picker map" : "Destination location map"}
-    />
+    <div className={`map-container w-full rounded-lg border border-gray-300 z-0 ${heightClassName}`} style={{ minHeight: '200px' }}>
+      <div
+        ref={containerRef}
+        className="h-full w-full"
+        style={{ position: "relative" }}
+        aria-label={interactive ? "Location picker map" : "Destination location map"}
+      />
+
+      {isInitializing && !error ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50/90">
+          <div className="text-center p-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-2"></div>
+            <div className="text-sm text-gray-600">Loading map...</div>
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50/95">
+          <div className="text-center p-4">
+            <div className="text-red-600 font-medium mb-2">Map Error</div>
+            <div className="text-sm text-gray-600">{error}</div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

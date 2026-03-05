@@ -48,6 +48,10 @@ export function Destinations() {
         longitude: number;
         resolvedAddress?: string;
       };
+      images: {
+        url: string;
+        publicId: string;
+      }[];
     }
   ) => {
     await updateDestination(destinationId, updates);

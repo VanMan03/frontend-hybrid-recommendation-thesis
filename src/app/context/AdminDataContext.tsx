@@ -41,6 +41,10 @@ export type CreateDestinationPayload = {
   description: string;
   category: string | string[];
   categories?: string[];
+  images?: {
+    url: string;
+    publicId: string;
+  }[];
   features:
     | string[]
     | Record<string, number>

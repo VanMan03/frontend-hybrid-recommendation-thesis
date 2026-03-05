@@ -3,6 +3,40 @@ import { X, Save } from "lucide-react";
 import { type Destination } from "@/app/context/AdminDataContext";
 import { LocationMap } from "@/app/components/LocationMap";
 
+type UploadedImage = {
+  url: string;
+  publicId: string;
+};
+
+type CloudinaryUploadSuccessInfo = {
+  secure_url?: string;
+  public_id?: string;
+};
+
+type CloudinaryUploadResult = {
+  event?: string;
+  info?: CloudinaryUploadSuccessInfo;
+};
+
+declare global {
+  interface Window {
+    cloudinary?: {
+      createUploadWidget: (
+        options: Record<string, unknown>,
+        callback: (error: unknown, result: CloudinaryUploadResult) => void
+      ) => {
+        open: () => void;
+      };
+    };
+  }
+}
+
+const MAX_IMAGES = 4;
+const CLOUDINARY_SCRIPT_ID = "cloudinary-upload-widget-script";
+const CLOUDINARY_WIDGET_SRC =
+  "https://upload-widget.cloudinary.com/latest/global/all.js";
+const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, "");
+
 interface EditDestinationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -17,6 +51,7 @@ interface EditDestinationModalProps {
         longitude: number;
         resolvedAddress?: string;
       };
+      images: UploadedImage[];
     }
   ) => Promise<void>;
   destination: Destination;
@@ -38,6 +73,11 @@ export function EditDestinationModal({
     longitude: destination.location?.longitude ?? null,
     resolvedAddress: destination.location?.resolvedAddress ?? "",
   });
+  const [images, setImages] = useState<UploadedImage[]>(
+    destination.images ?? destination.image ?? []
+  );
+  const [isWidgetLoading, setIsWidgetLoading] = useState(false);
+  const [widgetLoadError, setWidgetLoadError] = useState<string | null>(null);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +94,158 @@ export function EditDestinationModal({
       longitude: destination.location?.longitude ?? null,
       resolvedAddress: destination.location?.resolvedAddress ?? "",
     });
+    setImages(destination.images ?? destination.image ?? []);
   }, [destination, isOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.cloudinary) {
+      return;
+    }
+
+    const existingScript = document.getElementById(CLOUDINARY_SCRIPT_ID);
+    if (existingScript) {
+      const cloudinaryReady = Boolean(window.cloudinary?.createUploadWidget);
+      setIsWidgetLoading(!cloudinaryReady);
+      if (!cloudinaryReady) {
+        const onLoad = () => {
+          setIsWidgetLoading(false);
+          if (!window.cloudinary?.createUploadWidget) {
+            setWidgetLoadError("Cloudinary widget did not initialize.");
+          }
+        };
+        const onError = () => {
+          setIsWidgetLoading(false);
+          setWidgetLoadError("Failed to load Cloudinary widget script.");
+        };
+        existingScript.addEventListener("load", onLoad, { once: true });
+        existingScript.addEventListener("error", onError, { once: true });
+      }
+      return;
+    }
+
+    setIsWidgetLoading(true);
+    setWidgetLoadError(null);
+
+    const script = document.createElement("script");
+    script.id = CLOUDINARY_SCRIPT_ID;
+    script.src = CLOUDINARY_WIDGET_SRC;
+    script.async = true;
+    script.onload = () => {
+      setIsWidgetLoading(false);
+      if (!window.cloudinary?.createUploadWidget) {
+        setWidgetLoadError("Cloudinary widget did not initialize.");
+      }
+    };
+    script.onerror = () => {
+      setIsWidgetLoading(false);
+      setWidgetLoadError("Failed to load Cloudinary widget script.");
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  const openUploadWidget = useCallback(() => {
+    if (images.length >= MAX_IMAGES) {
+      alert("Maximum 4 images only");
+      return;
+    }
+
+    const token = localStorage.getItem("adminToken");
+    if (!API_BASE_URL || !token) {
+      alert("Missing API configuration or admin session.");
+      return;
+    }
+
+    if (isWidgetLoading) {
+      alert("Cloudinary upload widget is loading. Please try again in a moment.");
+      return;
+    }
+
+    if (widgetLoadError) {
+      alert(`Cloudinary upload widget error: ${widgetLoadError}`);
+      return;
+    }
+
+    if (
+      !window.cloudinary ||
+      typeof window.cloudinary.createUploadWidget !== "function"
+    ) {
+      alert("Cloudinary upload widget is still loading. Please try again.");
+      return;
+    }
+
+    const remainingSlots = MAX_IMAGES - images.length;
+    const widget = window.cloudinary.createUploadWidget(
+      {
+        cloudName: "dxhn0w931",
+        multiple: true,
+        maxFiles: Math.min(remainingSlots, 10),
+        resourceType: "image",
+        clientAllowedFormats: ["jpg", "jpeg", "png"],
+        maxFileSize: 10_000_000,
+        folder: "destinations",
+        uploadSignature: async (
+          callback: (signature: string, timestamp: number) => void,
+          paramsToSign: Record<string, string | number | boolean>
+        ) => {
+          const res = await fetch(`${API_BASE_URL}/admin/cloudinary/signature`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              folder: "destinations",
+              paramsToSign,
+            }),
+          });
+
+          if (!res.ok) {
+            throw new Error("Failed to get Cloudinary signature");
+          }
+
+          const data = (await res.json()) as {
+            signature?: string;
+            timestamp?: number;
+          };
+          if (!data.signature || !data.timestamp) {
+            throw new Error("Cloudinary signature response is invalid");
+          }
+
+          callback(data.signature, data.timestamp);
+        },
+        apiKey: "712265452497626",
+      },
+      (error, result) => {
+        if (error || result?.event !== "success") {
+          return;
+        }
+
+        const url = result.info?.secure_url;
+        const publicId = result.info?.public_id;
+        if (!url || !publicId) {
+          return;
+        }
+
+        setImages((prev) => {
+          if (prev.length >= MAX_IMAGES) {
+            return prev;
+          }
+
+          if (prev.some((item) => item.publicId === publicId)) {
+            return prev;
+          }
+
+          return [...prev, { url, publicId }];
+        });
+      }
+    );
+
+    widget.open();
+  }, [images.length, isWidgetLoading, widgetLoadError]);
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const reverseGeocode = useCallback(async (latitude: number, longitude: number) => {
     setIsResolvingAddress(true);
@@ -120,6 +311,7 @@ export function EditDestinationModal({
           longitude: location.longitude,
           resolvedAddress: location.resolvedAddress || undefined,
         },
+        images,
       });
       onClose();
     } catch {
@@ -132,7 +324,7 @@ export function EditDestinationModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white">
+        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-20">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Edit Destination</h2>
             <p className="text-sm text-gray-600 mt-1">{destination.name}</p>
@@ -182,6 +374,45 @@ export function EditDestinationModal({
           </div>
 
           <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Destination Images (max 4)
+            </label>
+            <button
+              type="button"
+              onClick={openUploadWidget}
+              disabled={images.length >= MAX_IMAGES || isWidgetLoading}
+              className="px-4 py-2 rounded-lg border border-teal-600 text-teal-700 hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isWidgetLoading ? "Loading Uploader..." : "Upload Image"}
+            </button>
+            <p className="text-xs text-gray-600 mt-2">
+              {images.length}/{MAX_IMAGES} uploaded
+            </p>
+            {widgetLoadError ? (
+              <p className="text-xs text-red-600 mt-1">{widgetLoadError}</p>
+            ) : null}
+
+            <div className="grid grid-cols-4 gap-2 mt-3">
+              {images.map((img, index) => (
+                <div key={img.publicId} className="relative">
+                  <img
+                    src={img.url}
+                    alt={`Destination image ${index + 1}`}
+                    className="w-full h-20 object-cover rounded"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute top-0 right-0 bg-red-500 text-white text-xs px-1"
+                  >
+                    X
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-semibold mb-2">
               Location <span className="text-red-500">*</span>
             </label>
@@ -226,7 +457,18 @@ export function EditDestinationModal({
               <p className="text-sm text-gray-700">
                 {isResolvingAddress
                   ? "Resolving address..."
-                  : location.resolvedAddress || "No address resolved"}
+                  : (() => {
+                      const address = location.resolvedAddress;
+                      if (!address) return "No address resolved";
+                      if (typeof address === 'string') return address;
+                      if (typeof address === 'object' && address !== null) {
+                        return address.fullAddress || 
+                               `${address.barangay || ''}, ${address.city || ''}, ${address.province || ''}, ${address.country || ''}`.replace(/^,|,$/g, '').trim() ||
+                               JSON.stringify(address);
+                      }
+                      return String(address);
+                    })()
+                }
               </p>
             </div>
           </div>

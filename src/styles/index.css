@@ -1,3 +1,19 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+@import 'mapbox-gl/dist/mapbox-gl.css';
+
+/* Keep map rendering clipped to the intended component container. */
+.map-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  z-index: 0;
+}
+
+.map-container .mapboxgl-map,
+.map-container .mapboxgl-canvas-container,
+.map-container .mapboxgl-canvas {
+  width: 100%;
+  height: 100%;
+}
