@@ -5,6 +5,7 @@ import {
   createDestinationFeature,
   deleteDestinationCategory,
   deleteDestinationFeature,
+  getDestinationInterestsSchema,
   getDestinationTaxonomy,
   type DestinationTaxonomyMap,
   updateDestinationCategory,
@@ -50,7 +51,15 @@ export function useDestinationTaxonomy(): UseDestinationTaxonomyResult {
     setLoading(true);
     setError(null);
     try {
-      const validFeatures = await getDestinationTaxonomy();
+      let validFeatures: DestinationTaxonomyMap = {};
+      try {
+        validFeatures = await getDestinationInterestsSchema();
+      } catch {
+        validFeatures = await getDestinationTaxonomy();
+      }
+      if (Object.keys(validFeatures).length === 0) {
+        validFeatures = await getDestinationTaxonomy();
+      }
       if (Object.keys(validFeatures).length > 0) {
         setTaxonomy(validFeatures);
       }

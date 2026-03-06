@@ -60,6 +60,7 @@ export function AddDestinationModal({
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
+  const [categoryValidationError, setCategoryValidationError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -91,16 +92,36 @@ export function AddDestinationModal({
     const existingScript = document.getElementById(CLOUDINARY_SCRIPT_ID);
     if (existingScript) {
       const cloudinaryReady = Boolean(window.cloudinary?.createUploadWidget);
-      setIsWidgetLoading(!cloudinaryReady);
-      if (!cloudinaryReady) {
+      if (cloudinaryReady) {
+        setIsWidgetLoading(false);
+        setWidgetLoadError(null);
+      } else {
+        const scriptStatus = existingScript.getAttribute("data-status");
+        const scriptAlreadyFinished = scriptStatus === "loaded" || scriptStatus === "error";
+
+        if (scriptAlreadyFinished) {
+          setIsWidgetLoading(false);
+          setWidgetLoadError(
+            scriptStatus === "error"
+              ? "Failed to load Cloudinary widget script."
+              : "Cloudinary widget did not initialize."
+          );
+          return;
+        }
+
+        setIsWidgetLoading(true);
         const onLoad = () => {
           setIsWidgetLoading(false);
+          existingScript.setAttribute("data-status", "loaded");
           if (!window.cloudinary?.createUploadWidget) {
             setWidgetLoadError("Cloudinary widget did not initialize.");
+            return;
           }
+          setWidgetLoadError(null);
         };
         const onError = () => {
           setIsWidgetLoading(false);
+          existingScript.setAttribute("data-status", "error");
           setWidgetLoadError("Failed to load Cloudinary widget script.");
         };
         existingScript.addEventListener("load", onLoad, { once: true });
@@ -114,16 +135,21 @@ export function AddDestinationModal({
 
     const script = document.createElement("script");
     script.id = CLOUDINARY_SCRIPT_ID;
+    script.setAttribute("data-status", "loading");
     script.src = CLOUDINARY_WIDGET_SRC;
     script.async = true;
     script.onload = () => {
       setIsWidgetLoading(false);
+      script.setAttribute("data-status", "loaded");
       if (!window.cloudinary?.createUploadWidget) {
         setWidgetLoadError("Cloudinary widget did not initialize.");
+        return;
       }
+      setWidgetLoadError(null);
     };
     script.onerror = () => {
       setIsWidgetLoading(false);
+      script.setAttribute("data-status", "error");
       setWidgetLoadError("Failed to load Cloudinary widget script.");
     };
     document.body.appendChild(script);
@@ -157,6 +183,7 @@ export function AddDestinationModal({
   }, [categories, taxonomy]);
 
   const handleMainCategoryChange = (category: string) => {
+    setCategoryValidationError(null);
     setFormData((prev) => ({
       ...prev,
       activeCategory: category,
@@ -164,6 +191,7 @@ export function AddDestinationModal({
   };
 
   const handleSubCategoryChange = (subCategory: string) => {
+    setCategoryValidationError(null);
     setFormData((prev) => {
       const currentFeatures = prev.selectedFeaturesByCategory[prev.activeCategory] ?? [];
       const isSelected = currentFeatures.includes(subCategory);
@@ -306,6 +334,7 @@ export function AddDestinationModal({
     });
     setImages([]);
     setIsResolvingAddress(false);
+    setCategoryValidationError(null);
   };
 
   const reverseGeocode = useCallback(async (latitude: number, longitude: number) => {
@@ -430,17 +459,39 @@ export function AddDestinationModal({
       return;
     }
 
-    const featuresByCategory = Object.fromEntries(
+    const normalizedSelections = Object.fromEntries(
       Object.entries(formData.selectedFeaturesByCategory)
-        .map(([category, features]) => [category, Array.from(new Set(features))])
-        .filter(([, features]) => features.length > 0)
+        .filter(([category]) => categories.includes(category))
+        .map(([category, features]) => [
+          category,
+          Array.from(new Set(features)).filter((feature) =>
+            (taxonomy[category] ?? []).includes(feature)
+          ),
+        ])
+    );
+    const categoriesMissingSubInterests = Object.entries(normalizedSelections)
+      .filter(([, features]) => features.length === 0)
+      .map(([category]) => category);
+
+    if (categoriesMissingSubInterests.length > 0) {
+      setCategoryValidationError(
+        `Each selected category must include at least one sub-category: ${categoriesMissingSubInterests.join(
+          ", "
+        )}`
+      );
+      return;
+    }
+
+    const featuresByCategory = Object.fromEntries(
+      Object.entries(normalizedSelections).filter(([, features]) => features.length > 0)
     );
     const selectedCategories = Object.keys(featuresByCategory);
 
     if (selectedCategories.length === 0) {
-      alert("Please select at least one feature from any category");
+      setCategoryValidationError("Please select at least one sub-category before saving.");
       return;
     }
+    setCategoryValidationError(null);
     if (formData.entryFeeValue === null || Number.isNaN(formData.entryFeeValue)) {
       alert("Please enter an entry fee");
       return;
@@ -755,22 +806,31 @@ export function AddDestinationModal({
                 Sub Category
               </label>
               <div className="space-y-2 border rounded-lg p-3 max-h-64 overflow-y-auto">
-                {(taxonomy[formData.activeCategory] ?? []).map((sub) => (
-                  <button
-                    key={sub}
-                    onClick={() => handleSubCategoryChange(sub)}
-                    className={`w-full p-2.5 rounded-lg border-2 text-left ${
-                      (formData.selectedFeaturesByCategory[formData.activeCategory] ?? []).includes(sub)
-                        ? "border-teal-600 bg-teal-50"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    {sub}
-                  </button>
-                ))}
+                {(taxonomy[formData.activeCategory] ?? []).length === 0 ? (
+                  <p className="text-sm text-red-700">
+                    This category has no sub-categories yet. Add at least one in Taxonomy Manager.
+                  </p>
+                ) : (
+                  (taxonomy[formData.activeCategory] ?? []).map((sub) => (
+                    <button
+                      key={sub}
+                      onClick={() => handleSubCategoryChange(sub)}
+                      className={`w-full p-2.5 rounded-lg border-2 text-left ${
+                        (formData.selectedFeaturesByCategory[formData.activeCategory] ?? []).includes(sub)
+                          ? "border-teal-600 bg-teal-50"
+                          : "border-gray-200"
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
+          {categoryValidationError ? (
+            <p className="text-sm text-red-700">{categoryValidationError}</p>
+          ) : null}
 
           <div className="bg-teal-50 border rounded-lg p-4">
             <p className="text-xs font-semibold uppercase mb-2">

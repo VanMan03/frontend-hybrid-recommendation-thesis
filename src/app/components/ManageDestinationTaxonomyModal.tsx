@@ -66,6 +66,7 @@ export function ManageDestinationTaxonomyModal({
     null
   );
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+  const [formValidationError, setFormValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -92,13 +93,14 @@ export function ManageDestinationTaxonomyModal({
   if (!isOpen) return null;
 
   const handleAddCategory = async () => {
+    setFormValidationError(null);
     if (!newCategory.trim()) {
-      alert("Category name is required");
+      setFormValidationError("Category name is required.");
       return;
     }
     const features = parseFeatureInput(newCategoryFeatures);
     if (features.length === 0) {
-      alert("Please provide at least one feature");
+      setFormValidationError("A category must include at least one sub-interest/feature.");
       return;
     }
 
@@ -113,10 +115,13 @@ export function ManageDestinationTaxonomyModal({
   };
 
   const handleReplaceFeatures = async () => {
+    setFormValidationError(null);
     if (!selectedCategory) return;
     const nextFeatures = parseFeatureInput(featureEditor);
     if (nextFeatures.length === 0) {
-      alert("A category must contain at least one feature");
+      setFormValidationError(
+        `Category "${selectedCategory}" must contain at least one sub-interest/feature.`
+      );
       return;
     }
 
@@ -128,9 +133,10 @@ export function ManageDestinationTaxonomyModal({
   };
 
   const handleAddFeature = async () => {
+    setFormValidationError(null);
     if (!selectedCategory) return;
     if (!newFeature.trim()) {
-      alert("Feature name is required");
+      setFormValidationError("Feature name is required.");
       return;
     }
 
@@ -210,6 +216,11 @@ export function ManageDestinationTaxonomyModal({
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+          {formValidationError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {formValidationError}
             </div>
           )}
 

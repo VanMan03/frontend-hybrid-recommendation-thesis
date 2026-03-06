@@ -2,6 +2,17 @@ import { apiRequest } from "./api";
 
 export type DestinationTaxonomyMap = Record<string, string[]>;
 
+type InterestSchemaResponse = {
+  mainInterests?: Array<{
+    id?: string;
+    label?: string;
+    subInterests?: Array<{
+      id?: string;
+      label?: string;
+    }>;
+  }>;
+};
+
 type TaxonomyResponse = {
   key?: string;
   validFeatures?: DestinationTaxonomyMap;
@@ -21,6 +32,40 @@ const normalizeTaxonomy = (
 export const getDestinationTaxonomy = async (): Promise<DestinationTaxonomyMap> => {
   const response = await apiRequest("/admin/destination-taxonomy");
   return normalizeTaxonomy(response as TaxonomyResponse | DestinationTaxonomyMap);
+};
+
+const normalizeInterestsSchema = (
+  response: InterestSchemaResponse
+): DestinationTaxonomyMap => {
+  const mainInterests = Array.isArray(response.mainInterests)
+    ? response.mainInterests
+    : [];
+
+  return Object.fromEntries(
+    mainInterests
+      .map((main) => {
+        const category = main.label?.trim();
+        if (!category) {
+          return null;
+        }
+
+        const features = Array.from(
+          new Set(
+            (Array.isArray(main.subInterests) ? main.subInterests : [])
+              .map((sub) => sub.label?.trim())
+              .filter((feature): feature is string => Boolean(feature))
+          )
+        );
+
+        return [category, features] as const;
+      })
+      .filter((entry): entry is readonly [string, string[]] => entry !== null)
+  );
+};
+
+export const getDestinationInterestsSchema = async (): Promise<DestinationTaxonomyMap> => {
+  const response = await apiRequest("/destinations/interests-schema");
+  return normalizeInterestsSchema(response as InterestSchemaResponse);
 };
 
 export const replaceDestinationTaxonomy = async (

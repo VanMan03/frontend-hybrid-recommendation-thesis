@@ -82,6 +82,7 @@ export function EditCategoryModal({
     Record<string, string[]>
   >({});
   const [isSaving, setIsSaving] = useState(false);
+  const [categoryValidationError, setCategoryValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -106,6 +107,7 @@ export function EditCategoryModal({
 
     setActiveCategory(nextActiveCategory);
     setSelectedFeaturesByCategory(normalizeFeatureMap(destination, taxonomy));
+    setCategoryValidationError(null);
   }, [categories, destination, isOpen, taxonomy]);
 
   useEffect(() => {
@@ -138,6 +140,7 @@ export function EditCategoryModal({
   if (!isOpen) return null;
 
   const handleSubCategoryChange = (subCategory: string) => {
+    setCategoryValidationError(null);
     setSelectedFeaturesByCategory((prev) => {
       const current = prev[activeCategory] ?? [];
       const isSelected = current.includes(subCategory);
@@ -156,17 +159,39 @@ export function EditCategoryModal({
   };
 
   const handleSave = async () => {
-    const featuresByCategory = Object.fromEntries(
+    const normalizedSelections = Object.fromEntries(
       Object.entries(selectedFeaturesByCategory)
-        .map(([category, features]) => [category, Array.from(new Set(features))])
-        .filter(([, features]) => features.length > 0)
+        .filter(([category]) => categories.includes(category))
+        .map(([category, features]) => [
+          category,
+          Array.from(new Set(features)).filter((feature) =>
+            (taxonomy[category] ?? []).includes(feature)
+          ),
+        ])
+    );
+    const categoriesMissingSubInterests = Object.entries(normalizedSelections)
+      .filter(([, features]) => features.length === 0)
+      .map(([category]) => category);
+
+    if (categoriesMissingSubInterests.length > 0) {
+      setCategoryValidationError(
+        `Each selected category must include at least one sub-category: ${categoriesMissingSubInterests.join(
+          ", "
+        )}`
+      );
+      return;
+    }
+
+    const featuresByCategory = Object.fromEntries(
+      Object.entries(normalizedSelections).filter(([, features]) => features.length > 0)
     );
     const nextCategories = Object.keys(featuresByCategory);
 
     if (nextCategories.length === 0) {
-      alert("Please select at least one sub category");
+      setCategoryValidationError("Please select at least one sub-category before saving.");
       return;
     }
+    setCategoryValidationError(null);
 
     setIsSaving(true);
     try {
@@ -231,22 +256,31 @@ export function EditCategoryModal({
                 Sub Category
               </label>
               <div className="space-y-2 border rounded-lg p-3 max-h-64 overflow-y-auto">
-                {(taxonomy[activeCategory] ?? []).map((subCategory) => (
-                  <button
-                    key={subCategory}
-                    onClick={() => handleSubCategoryChange(subCategory)}
-                    className={`w-full p-2.5 rounded-lg border-2 text-left ${
-                      (selectedFeaturesByCategory[activeCategory] ?? []).includes(subCategory)
-                        ? "border-teal-600 bg-teal-50"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    {subCategory}
-                  </button>
-                ))}
+                {(taxonomy[activeCategory] ?? []).length === 0 ? (
+                  <p className="text-sm text-red-700">
+                    This category has no sub-categories yet. Add at least one in Taxonomy Manager.
+                  </p>
+                ) : (
+                  (taxonomy[activeCategory] ?? []).map((subCategory) => (
+                    <button
+                      key={subCategory}
+                      onClick={() => handleSubCategoryChange(subCategory)}
+                      className={`w-full p-2.5 rounded-lg border-2 text-left ${
+                        (selectedFeaturesByCategory[activeCategory] ?? []).includes(subCategory)
+                          ? "border-teal-600 bg-teal-50"
+                          : "border-gray-200"
+                      }`}
+                    >
+                      {subCategory}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
+          {categoryValidationError ? (
+            <p className="text-sm text-red-700">{categoryValidationError}</p>
+          ) : null}
 
           <div className="bg-teal-50 border rounded-lg p-4">
             <p className="text-xs font-semibold uppercase mb-2">
