@@ -63,11 +63,19 @@ const stats = [
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
-              <div>
+              <div className="pr-4 min-w-0">
                 <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                <p
+                  className={`font-bold text-gray-900 mt-2 leading-tight pr-2 ${
+                    typeof stat.value === "string"
+                      ? "text-2xl whitespace-nowrap"
+                      : "text-3xl"
+                  }`}
+                >
+                  {stat.value}
+                </p>
               </div>
-              <div className={`${stat.color} p-3 rounded-lg`}>
+              <div className={`${stat.color} p-3 rounded-lg shrink-0`}>
                 <stat.icon className="size-6 text-white" />
               </div>
             </div>
