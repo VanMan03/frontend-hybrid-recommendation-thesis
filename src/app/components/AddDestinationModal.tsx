@@ -43,6 +43,14 @@ interface AddDestinationModalProps {
   onClose: () => void;
 }
 
+type AddressFormState = {
+  purok: string;
+  barangay: string;
+  municipality: string;
+  province: string;
+  fullAddress: string;
+};
+
 export function AddDestinationModal({
   isOpen,
   onClose,
@@ -70,10 +78,16 @@ export function AddDestinationModal({
     entryFeeValue: null as number | null,
     accessibility: "Moderate",
     location: {
-      latitude: null as number | null,
-      longitude: null as number | null,
-      resolvedAddress: "",
+      lat: null as number | null,
+      lng: null as number | null,
     },
+    address: {
+      purok: "",
+      barangay: "",
+      municipality: "",
+      province: "",
+      fullAddress: "",
+    } as AddressFormState,
   });
 
   useEffect(() => {
@@ -327,9 +341,15 @@ export function AddDestinationModal({
       entryFeeValue: null,
       accessibility: "Moderate",
       location: {
-        latitude: null,
-        longitude: null,
-        resolvedAddress: "",
+        lat: null,
+        lng: null,
+      },
+      address: {
+        purok: "",
+        barangay: "",
+        municipality: "",
+        province: "",
+        fullAddress: "",
       },
     });
     setImages([]);
@@ -372,8 +392,8 @@ export function AddDestinationModal({
       ...prev,
       location: {
         ...prev.location,
-        latitude: next.latitude,
-        longitude: next.longitude,
+        lat: next.latitude,
+        lng: next.longitude,
       },
     }));
 
@@ -383,9 +403,12 @@ export function AddDestinationModal({
       ...prev,
       location: {
         ...prev.location,
-        latitude: next.latitude,
-        longitude: next.longitude,
-        resolvedAddress,
+        lat: next.latitude,
+        lng: next.longitude,
+      },
+      address: {
+        ...prev.address,
+        fullAddress: resolvedAddress || prev.address.fullAddress,
       },
     }));
   }, [reverseGeocode]);
@@ -501,8 +524,8 @@ export function AddDestinationModal({
       return;
     }
     if (
-      formData.location.latitude === null ||
-      formData.location.longitude === null
+      formData.location.lat === null ||
+      formData.location.lng === null
     ) {
       alert("Please select a destination location on the map");
       return;
@@ -512,42 +535,36 @@ export function AddDestinationModal({
       return;
     }
 
-    let resolvedAddress = formData.location.resolvedAddress.trim();
-    if (!resolvedAddress) {
-      resolvedAddress = await reverseGeocode(
-        Number(formData.location.latitude),
-        Number(formData.location.longitude)
-      );
-
-      if (!resolvedAddress) {
-        alert("Unable to resolve address for the selected location. Please verify your Mapbox token and try again.");
-        return;
-      }
-
-      setFormData((prev) => ({
-        ...prev,
-        location: {
-          ...prev.location,
-          resolvedAddress,
-        },
-      }));
-    }
-
     try {
+      const trimOptional = (value: string) => {
+        const trimmed = value.trim();
+        return trimmed ? trimmed : undefined;
+      };
+
       const payload = {
-        name: formData.name,
-        description: formData.description,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         category: selectedCategories,
         categories: selectedCategories,
         features: featuresByCategory,
         estimatedCost: formData.entryFeeValue,
-        latitude: Number(formData.location.latitude),
-        longitude: Number(formData.location.longitude),
+        lat: Number(formData.location.lat),
+        lng: Number(formData.location.lng),
+        latitude: Number(formData.location.lat),
+        longitude: Number(formData.location.lng),
         images,
         location: {
-          latitude: formData.location.latitude,
-          longitude: formData.location.longitude,
-          resolvedAddress,
+          lat: Number(formData.location.lat),
+          lng: Number(formData.location.lng),
+          latitude: Number(formData.location.lat),
+          longitude: Number(formData.location.lng),
+        },
+        address: {
+          purok: trimOptional(formData.address.purok),
+          barangay: trimOptional(formData.address.barangay),
+          municipality: trimOptional(formData.address.municipality),
+          province: trimOptional(formData.address.province),
+          fullAddress: trimOptional(formData.address.fullAddress),
         },
       };
 
@@ -691,11 +708,11 @@ export function AddDestinationModal({
             <LocationMap
               interactive
               value={
-                formData.location.latitude !== null &&
-                formData.location.longitude !== null
+                formData.location.lat !== null &&
+                formData.location.lng !== null
                   ? {
-                      latitude: formData.location.latitude,
-                      longitude: formData.location.longitude,
+                      latitude: formData.location.lat,
+                      longitude: formData.location.lng,
                     }
                   : null
               }
@@ -706,32 +723,127 @@ export function AddDestinationModal({
                 <p className="text-xs font-semibold uppercase text-gray-600">
                   Latitude
                 </p>
-                <p className="text-sm text-gray-900">
-                  {formData.location.latitude !== null
-                    ? formData.location.latitude.toFixed(6)
-                    : "Not selected"}
-                </p>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.location.lat ?? ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      location: {
+                        ...prev.location,
+                        lat: e.target.value === "" ? null : Number(e.target.value),
+                      },
+                    }))
+                  }
+                  placeholder="e.g. 12.769262"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-gray-600">
                   Longitude
                 </p>
-                <p className="text-sm text-gray-900">
-                  {formData.location.longitude !== null
-                    ? formData.location.longitude.toFixed(6)
-                    : "Not selected"}
-                </p>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.location.lng ?? ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      location: {
+                        ...prev.location,
+                        lng: e.target.value === "" ? null : Number(e.target.value),
+                      },
+                    }))
+                  }
+                  placeholder="e.g. 124.140175"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
               </div>
             </div>
-            <div className="mt-2">
-              <p className="text-xs font-semibold uppercase text-gray-600">
-                Resolved Address
-              </p>
-              <p className="text-sm text-gray-700">
-                {isResolvingAddress
-                  ? "Resolving address..."
-                  : formData.location.resolvedAddress || "No address resolved"}
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Purok
+                </label>
+                <input
+                  type="text"
+                  value={formData.address.purok}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      address: { ...prev.address, purok: e.target.value },
+                    }))
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Barangay
+                </label>
+                <input
+                  type="text"
+                  value={formData.address.barangay}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      address: { ...prev.address, barangay: e.target.value },
+                    }))
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Municipality
+                </label>
+                <input
+                  type="text"
+                  value={formData.address.municipality}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      address: { ...prev.address, municipality: e.target.value },
+                    }))
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Province
+                </label>
+                <input
+                  type="text"
+                  value={formData.address.province}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      address: { ...prev.address, province: e.target.value },
+                    }))
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                Full Address (optional)
+              </label>
+              <input
+                type="text"
+                value={formData.address.fullAddress}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    address: { ...prev.address, fullAddress: e.target.value },
+                  }))
+                }
+                placeholder={isResolvingAddress ? "Resolving address..." : ""}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+              />
             </div>
           </div>
 

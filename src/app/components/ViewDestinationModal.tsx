@@ -46,15 +46,53 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
             .map(([feature]) => toLabel(feature));
         });
   const featuresText = Array.from(new Set(featuresList)).join(', ');
-  const destinationLocation = destination.location
-    ? {
-        latitude: destination.location.latitude,
-        longitude: destination.location.longitude,
-      }
-    : null;
+  const destinationLatitude =
+    destination.location?.lat ?? destination.location?.latitude ?? null;
+  const destinationLongitude =
+    destination.location?.lng ?? destination.location?.longitude ?? null;
+  const destinationLocation =
+    destinationLatitude !== null && destinationLongitude !== null
+      ? {
+          latitude: destinationLatitude,
+          longitude: destinationLongitude,
+        }
+      : null;
 
   const getStatusColor = (isActive: boolean) =>
     isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+
+  const toAddressText = (value: unknown) => {
+    if (!value) return "";
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed;
+    }
+    if (typeof value !== "object") return "";
+
+    const record = value as Record<string, unknown>;
+    const fullAddress =
+      typeof record.fullAddress === "string" ? record.fullAddress.trim() : "";
+    if (fullAddress) return fullAddress;
+
+    const parts = [
+      record.purok,
+      record.barangay,
+      record.municipality,
+      record.city,
+      record.province,
+      record.country,
+    ]
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+      .map((part) => part.trim());
+
+    return parts.join(", ");
+  };
+
+  const normalizedAddress =
+    toAddressText(destination.address) ||
+    toAddressText((destination.location as Record<string, unknown> | undefined)?.address) ||
+    toAddressText(destination.location?.resolvedAddress) ||
+    "Not available";
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -133,31 +171,21 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <p className="text-sm text-gray-700">
                     <span className="font-semibold text-gray-900">Latitude:</span>{" "}
-                    {destination.location?.latitude.toFixed(6)}
+                    {destinationLatitude !== null ? destinationLatitude.toFixed(6) : "Not available"}
                   </p>
                   <p className="text-sm text-gray-700">
                     <span className="font-semibold text-gray-900">Longitude:</span>{" "}
-                    {destination.location?.longitude.toFixed(6)}
+                    {destinationLongitude !== null ? destinationLongitude.toFixed(6) : "Not available"}
                   </p>
                 </div>
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold text-gray-900">Address:</span>{" "}
-                  {(() => {
-                    const address = destination.location?.resolvedAddress;
-                    if (!address) return "Not available";
-                    if (typeof address === 'string') return address;
-                    if (typeof address === 'object' && address !== null) {
-                      return address.fullAddress || 
-                             `${address.barangay || ''}, ${address.city || ''}, ${address.province || ''}, ${address.country || ''}`.replace(/^,|,$/g, '').trim() ||
-                             JSON.stringify(address);
-                    }
-                    return String(address);
-                  })()}
-                </p>
               </>
             ) : (
               <p className="text-sm text-gray-600">No location saved for this destination.</p>
             )}
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold text-gray-900">Address:</span>{" "}
+              {normalizedAddress}
+            </p>
           </div>
         </div>
 

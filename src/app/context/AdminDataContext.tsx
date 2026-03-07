@@ -21,9 +21,18 @@ export type Destination = {
     | string[]
     | Record<string, string[] | number | Record<string, number>>; // display only
   location?: {
-    latitude: number;
-    longitude: number;
+    lat?: number;
+    lng?: number;
+    latitude?: number;
+    longitude?: number;
     resolvedAddress?: string;
+  };
+  address?: {
+    purok?: string;
+    barangay?: string;
+    municipality?: string;
+    province?: string;
+    fullAddress?: string;
   };
   isActive: boolean;
   image?: {
@@ -52,10 +61,21 @@ export type CreateDestinationPayload = {
   estimatedCost: number;
   latitude?: number;
   longitude?: number;
+  lat?: number;
+  lng?: number;
   location: {
-    latitude: number;
-    longitude: number;
+    lat: number;
+    lng: number;
+    latitude?: number;
+    longitude?: number;
     resolvedAddress?: string;
+  };
+  address?: {
+    purok?: string;
+    barangay?: string;
+    municipality?: string;
+    province?: string;
+    fullAddress?: string;
   };
 };
 

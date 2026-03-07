@@ -14,7 +14,13 @@ type LocationMapProps = {
 };
 
 const DEFAULT_CENTER: LocationValue = { latitude: 12.8797, longitude: 121.774 };
-const MAPBOX_STYLE_URL = "mapbox://styles/mapbox/streets-v12";
+const MAP_STYLES = {
+  streets: "mapbox://styles/mapbox/streets-v12",
+  satellite: "mapbox://styles/mapbox/satellite-v9",
+  hybrid: "mapbox://styles/mapbox/satellite-streets-v12",
+} as const;
+
+type MapStyleKey = keyof typeof MAP_STYLES;
 
 export function LocationMap({
   value,
@@ -29,6 +35,7 @@ export function LocationMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>("hybrid");
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -73,7 +80,7 @@ export function LocationMap({
       try {
         const map = new mapboxgl.Map({
           container: container,
-          style: MAPBOX_STYLE_URL,
+          style: MAP_STYLES[mapStyle],
           center: [center.longitude, center.latitude],
           zoom: value ? 13 : 6,
           interactive: interactive,
@@ -173,7 +180,7 @@ export function LocationMap({
         markerRef.current = null;
       }
     };
-  }, [interactive, onSelect]);
+  }, [interactive, mapStyle, onSelect]);
 
   // Update marker position when value changes
   useEffect(() => {
@@ -211,13 +218,41 @@ export function LocationMap({
   }, [value, mapLoaded, interactive, onSelect]);
 
   return (
-    <div className={`map-container w-full rounded-lg border border-gray-300 z-0 ${heightClassName}`} style={{ minHeight: '200px' }}>
+    <div className={`map-container relative w-full rounded-lg border border-gray-300 z-0 ${heightClassName}`} style={{ minHeight: '200px' }}>
       <div
         ref={containerRef}
         className="h-full w-full"
         style={{ position: "relative" }}
         aria-label={interactive ? "Location picker map" : "Destination location map"}
       />
+
+      {interactive ? (
+        <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-lg border border-gray-300 bg-white/95 p-1 shadow-md">
+          <div className="flex items-center gap-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setMapStyle("streets")}
+              className={`rounded-md px-3 py-1.5 ${mapStyle === "streets" ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+            >
+              Streets
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapStyle("satellite")}
+              className={`rounded-md px-3 py-1.5 ${mapStyle === "satellite" ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+            >
+              Satellite
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapStyle("hybrid")}
+              className={`rounded-md px-3 py-1.5 ${mapStyle === "hybrid" ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+            >
+              Hybrid
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {isInitializing && !error ? (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50/90">

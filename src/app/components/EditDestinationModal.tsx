@@ -47,9 +47,17 @@ interface EditDestinationModalProps {
       description: string;
       estimatedCost: number;
       location: {
-        latitude: number;
-        longitude: number;
-        resolvedAddress?: string;
+        lat: number;
+        lng: number;
+        latitude?: number;
+        longitude?: number;
+      };
+      address?: {
+        purok?: string;
+        barangay?: string;
+        municipality?: string;
+        province?: string;
+        fullAddress?: string;
       };
       images: UploadedImage[];
     }
@@ -63,15 +71,29 @@ export function EditDestinationModal({
   onSave,
   destination,
 }: EditDestinationModalProps) {
+  const getLatitude = (value?: Destination["location"]) =>
+    value?.lat ?? value?.latitude ?? null;
+  const getLongitude = (value?: Destination["location"]) =>
+    value?.lng ?? value?.longitude ?? null;
+
   const [name, setName] = useState(destination.name);
   const [description, setDescription] = useState(destination.description);
   const [estimatedCost, setEstimatedCost] = useState(
     destination.estimatedCost.toString()
   );
   const [location, setLocation] = useState({
-    latitude: destination.location?.latitude ?? null,
-    longitude: destination.location?.longitude ?? null,
-    resolvedAddress: destination.location?.resolvedAddress ?? "",
+    lat: getLatitude(destination.location),
+    lng: getLongitude(destination.location),
+  });
+  const [address, setAddress] = useState({
+    purok: destination.address?.purok ?? "",
+    barangay: destination.address?.barangay ?? "",
+    municipality: destination.address?.municipality ?? "",
+    province: destination.address?.province ?? "",
+    fullAddress:
+      destination.address?.fullAddress ??
+      destination.location?.resolvedAddress ??
+      "",
   });
   const [images, setImages] = useState<UploadedImage[]>(
     destination.images ?? destination.image ?? []
@@ -90,9 +112,18 @@ export function EditDestinationModal({
     setDescription(destination.description);
     setEstimatedCost(destination.estimatedCost.toString());
     setLocation({
-      latitude: destination.location?.latitude ?? null,
-      longitude: destination.location?.longitude ?? null,
-      resolvedAddress: destination.location?.resolvedAddress ?? "",
+      lat: getLatitude(destination.location),
+      lng: getLongitude(destination.location),
+    });
+    setAddress({
+      purok: destination.address?.purok ?? "",
+      barangay: destination.address?.barangay ?? "",
+      municipality: destination.address?.municipality ?? "",
+      province: destination.address?.province ?? "",
+      fullAddress:
+        destination.address?.fullAddress ??
+        destination.location?.resolvedAddress ??
+        "",
     });
     setImages(destination.images ?? destination.image ?? []);
   }, [destination, isOpen]);
@@ -274,17 +305,17 @@ export function EditDestinationModal({
   }) => {
     setLocation((prev) => ({
       ...prev,
-      latitude: next.latitude,
-      longitude: next.longitude,
+      lat: next.latitude,
+      lng: next.longitude,
     }));
 
     const resolvedAddress = await reverseGeocode(next.latitude, next.longitude);
 
-    setLocation({
-      latitude: next.latitude,
-      longitude: next.longitude,
-      resolvedAddress,
-    });
+    setLocation({ lat: next.latitude, lng: next.longitude });
+    setAddress((prev) => ({
+      ...prev,
+      fullAddress: resolvedAddress || prev.fullAddress,
+    }));
   }, [reverseGeocode]);
 
   if (!isOpen) return null;
@@ -294,7 +325,7 @@ export function EditDestinationModal({
       alert("Please enter a destination name and description");
       return;
     }
-    if (location.latitude === null || location.longitude === null) {
+    if (location.lat === null || location.lng === null) {
       alert("Please select a destination location on the map");
       return;
     }
@@ -302,14 +333,27 @@ export function EditDestinationModal({
     setLoading(true);
 
     try {
+      const trimOptional = (value: string) => {
+        const trimmed = value.trim();
+        return trimmed ? trimmed : undefined;
+      };
+
       await onSave(destination._id, {
         name: name.trim(),
         description: description.trim(),
         estimatedCost: Number(estimatedCost),
         location: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          resolvedAddress: location.resolvedAddress || undefined,
+          lat: location.lat,
+          lng: location.lng,
+          latitude: location.lat,
+          longitude: location.lng,
+        },
+        address: {
+          purok: trimOptional(address.purok),
+          barangay: trimOptional(address.barangay),
+          municipality: trimOptional(address.municipality),
+          province: trimOptional(address.province),
+          fullAddress: trimOptional(address.fullAddress),
         },
         images,
       });
@@ -422,8 +466,8 @@ export function EditDestinationModal({
             <LocationMap
               interactive
               value={
-                location.latitude !== null && location.longitude !== null
-                  ? { latitude: location.latitude, longitude: location.longitude }
+                location.lat !== null && location.lng !== null
+                  ? { latitude: location.lat, longitude: location.lng }
                   : null
               }
               onSelect={handleMapLocationSelect}
@@ -433,43 +477,98 @@ export function EditDestinationModal({
                 <p className="text-xs font-semibold uppercase text-gray-600">
                   Latitude
                 </p>
-                <p className="text-sm text-gray-900">
-                  {location.latitude !== null
-                    ? location.latitude.toFixed(6)
-                    : "Not selected"}
-                </p>
+                <input
+                  type="number"
+                  step="any"
+                  value={location.lat ?? ""}
+                  onChange={(e) =>
+                    setLocation((prev) => ({
+                      ...prev,
+                      lat: e.target.value === "" ? null : Number(e.target.value),
+                    }))
+                  }
+                  placeholder="e.g. 12.769262"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-gray-600">
                   Longitude
                 </p>
-                <p className="text-sm text-gray-900">
-                  {location.longitude !== null
-                    ? location.longitude.toFixed(6)
-                    : "Not selected"}
-                </p>
+                <input
+                  type="number"
+                  step="any"
+                  value={location.lng ?? ""}
+                  onChange={(e) =>
+                    setLocation((prev) => ({
+                      ...prev,
+                      lng: e.target.value === "" ? null : Number(e.target.value),
+                    }))
+                  }
+                  placeholder="e.g. 124.140175"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
               </div>
             </div>
-            <div className="mt-2">
-              <p className="text-xs font-semibold uppercase text-gray-600">
-                Resolved Address
-              </p>
-              <p className="text-sm text-gray-700">
-                {isResolvingAddress
-                  ? "Resolving address..."
-                  : (() => {
-                      const address = location.resolvedAddress;
-                      if (!address) return "No address resolved";
-                      if (typeof address === 'string') return address;
-                      if (typeof address === 'object' && address !== null) {
-                        return address.fullAddress || 
-                               `${address.barangay || ''}, ${address.city || ''}, ${address.province || ''}, ${address.country || ''}`.replace(/^,|,$/g, '').trim() ||
-                               JSON.stringify(address);
-                      }
-                      return String(address);
-                    })()
-                }
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Purok
+                </label>
+                <input
+                  type="text"
+                  value={address.purok}
+                  onChange={(e) => setAddress((prev) => ({ ...prev, purok: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Barangay
+                </label>
+                <input
+                  type="text"
+                  value={address.barangay}
+                  onChange={(e) => setAddress((prev) => ({ ...prev, barangay: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Municipality
+                </label>
+                <input
+                  type="text"
+                  value={address.municipality}
+                  onChange={(e) =>
+                    setAddress((prev) => ({ ...prev, municipality: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                  Province
+                </label>
+                <input
+                  type="text"
+                  value={address.province}
+                  onChange={(e) => setAddress((prev) => ({ ...prev, province: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                Full Address (optional)
+              </label>
+              <input
+                type="text"
+                value={address.fullAddress}
+                onChange={(e) => setAddress((prev) => ({ ...prev, fullAddress: e.target.value }))}
+                placeholder={isResolvingAddress ? "Resolving address..." : ""}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+              />
             </div>
           </div>
         </div>

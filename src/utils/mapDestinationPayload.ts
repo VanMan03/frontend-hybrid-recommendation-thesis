@@ -8,9 +8,17 @@ interface MapInput {
   mainCategory: MainCategory;
   subCategories: SubCategory[];
   location: {
-    latitude: number;
-    longitude: number;
-    resolvedAddress?: string;
+    latitude?: number;
+    longitude?: number;
+    lat?: number;
+    lng?: number;
+  };
+  address?: {
+    purok?: string;
+    barangay?: string;
+    municipality?: string;
+    province?: string;
+    fullAddress?: string;
   };
 }
 
@@ -43,8 +51,16 @@ export function mapDestinationPayload(input: MapInput) {
     categories,
     features: featuresByCategory,
     estimatedCost: input.entryFee,
-    latitude: Number(input.location.latitude),
-    longitude: Number(input.location.longitude),
-    location: input.location,
+    lat: Number(input.location.lat ?? input.location.latitude),
+    lng: Number(input.location.lng ?? input.location.longitude),
+    latitude: Number(input.location.lat ?? input.location.latitude),
+    longitude: Number(input.location.lng ?? input.location.longitude),
+    location: {
+      lat: Number(input.location.lat ?? input.location.latitude),
+      lng: Number(input.location.lng ?? input.location.longitude),
+      latitude: Number(input.location.lat ?? input.location.latitude),
+      longitude: Number(input.location.lng ?? input.location.longitude),
+    },
+    address: input.address,
   };
 }

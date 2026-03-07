@@ -44,9 +44,18 @@ export function Destinations() {
       description: string;
       estimatedCost: number;
       location: {
-        latitude: number;
-        longitude: number;
+        lat: number;
+        lng: number;
+        latitude?: number;
+        longitude?: number;
         resolvedAddress?: string;
+      };
+      address?: {
+        purok?: string;
+        barangay?: string;
+        municipality?: string;
+        province?: string;
+        fullAddress?: string;
       };
       images: {
         url: string;
