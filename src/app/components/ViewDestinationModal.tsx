@@ -57,6 +57,14 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
           longitude: destinationLongitude,
         }
       : null;
+  const durationHours =
+    typeof destination.durationHours === "number"
+      ? destination.durationHours
+      : typeof destination.duration === "number"
+        ? destination.duration
+        : null;
+  const durationText =
+    durationHours === null ? "Not available" : `${durationHours} hour${durationHours === 1 ? "" : "s"}`;
 
   const getStatusColor = (isActive: boolean) =>
     isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
@@ -146,11 +154,17 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
           </div>
 
           {/* Details Grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Entry Fee */}
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
               <p className="text-xs font-semibold text-blue-900 uppercase mb-2">Entry Fee</p>
               <p className="text-xl font-bold text-blue-600">PHP {destination.estimatedCost}</p>
+            </div>
+
+            {/* Average Trip Duration */}
+            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+              <p className="text-xs font-semibold text-amber-900 uppercase mb-2">Average Trip Duration</p>
+              <p className="text-xl font-bold text-amber-700">{durationText}</p>
             </div>
 
             {/* Status */}

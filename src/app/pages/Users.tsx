@@ -1,13 +1,76 @@
 import { Search, UserCheck, UserX, Eye } from 'lucide-react';
 import { useAdminData } from '@/app/context/AdminDataContext';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 export function Users() {
-  const { users, fetchUsers } = useAdminData();
+  const { users, itineraries, fetchUsers, fetchItineraries } = useAdminData();
 
   useEffect(() => {
     fetchUsers();
+    fetchItineraries();
   }, []);
+
+  const normalizeValue = (value: any) => {
+    if (value === null || value === undefined) return '';
+    return String(value).trim().toLowerCase();
+  };
+
+  const normalizeId = (value: any): string => {
+    if (!value) return '';
+    if (typeof value === 'string' || typeof value === 'number') return normalizeValue(value);
+    if (typeof value === 'object') {
+      if (value.$oid) return normalizeId(value.$oid);
+      if (value._id) return normalizeId(value._id);
+      if (value.id) return normalizeId(value.id);
+    }
+    return normalizeValue(value);
+  };
+
+  const getUserKeys = (user: any): string[] => {
+    const keys = [
+      normalizeId(user?._id),
+      normalizeId(user?.id),
+      normalizeValue(user?.email),
+      normalizeValue(user?.name),
+      normalizeValue(user?.fullName),
+      normalizeValue([user?.firstName, user?.lastName].filter(Boolean).join(' ')),
+    ].filter(Boolean);
+
+    return Array.from(new Set(keys));
+  };
+
+  const getItineraryKeys = (itinerary: any): string[] => {
+    const keys = [
+      normalizeId(itinerary?.userId),
+      normalizeId(itinerary?.user_id),
+      normalizeId(itinerary?.createdBy),
+      normalizeId(itinerary?.creatorId),
+      normalizeId(itinerary?.ownerId),
+      normalizeId(itinerary?.travelerId),
+      normalizeId(itinerary?.user?._id),
+      normalizeId(itinerary?.user?.id),
+      normalizeValue(itinerary?.user?.email),
+      normalizeValue(itinerary?.user?.name),
+      normalizeValue(itinerary?.user?.fullName),
+      normalizeValue(itinerary?.userName),
+      normalizeValue(typeof itinerary?.user === 'string' ? itinerary.user : ''),
+    ].filter(Boolean);
+
+    return Array.from(new Set(keys));
+  };
+
+  const itineraryCountByUser = useMemo(() => {
+    const countMap = new Map<string, number>();
+
+    itineraries.forEach((itinerary: any) => {
+      const keys = getItineraryKeys(itinerary);
+      keys.forEach((key) => {
+        countMap.set(key, (countMap.get(key) || 0) + 1);
+      });
+    });
+
+    return countMap;
+  }, [itineraries]);
 
   const getDisplayName = (user: any) => {
     const combined = [user?.firstName, user?.lastName]
@@ -28,8 +91,25 @@ export function Users() {
 
   const getActivityLevel = (user: any) => user?.activityLevel || 'Low';
   const getAccountStatus = (user: any) => user?.accountStatus || (user?.isActive === false ? 'Suspended' : 'Active');
-  const getItineraryCount = (user: any) =>
-    user?.itineraryCount ?? user?.itinerariesCount ?? user?.itineraries?.length ?? 0;
+  const getItineraryCount = (user: any) => {
+    const providedCount =
+      user?.itineraryCount ??
+      user?.itinerariesCount ??
+      user?.totalItineraries ??
+      (Array.isArray(user?.itineraries) ? user.itineraries.length : undefined);
+
+    if (typeof providedCount === 'number' && !Number.isNaN(providedCount) && providedCount > 0) {
+      return providedCount;
+    }
+
+    const userKeys = getUserKeys(user);
+    for (const key of userKeys) {
+      const matched = itineraryCountByUser.get(key);
+      if (typeof matched === 'number') return matched;
+    }
+
+    return typeof providedCount === 'number' && !Number.isNaN(providedCount) ? providedCount : 0;
+  };
 
   return (
     <div className="space-y-6">

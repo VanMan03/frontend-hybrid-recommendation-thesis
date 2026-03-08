@@ -69,6 +69,7 @@ export function AddDestinationModal({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
   const [categoryValidationError, setCategoryValidationError] = useState<string | null>(null);
+  const [durationValidationError, setDurationValidationError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -76,6 +77,7 @@ export function AddDestinationModal({
     activeCategory: defaultCategory,
     selectedFeaturesByCategory: {} as Record<string, string[]>,
     entryFeeValue: null as number | null,
+    durationHoursValue: null as number | null,
     accessibility: "Moderate",
     location: {
       lat: null as number | null,
@@ -339,6 +341,7 @@ export function AddDestinationModal({
       activeCategory: nextDefaultCategory,
       selectedFeaturesByCategory: {},
       entryFeeValue: null,
+      durationHoursValue: null,
       accessibility: "Moderate",
       location: {
         lat: null,
@@ -355,6 +358,7 @@ export function AddDestinationModal({
     setImages([]);
     setIsResolvingAddress(false);
     setCategoryValidationError(null);
+    setDurationValidationError(null);
   };
 
   const reverseGeocode = useCallback(async (latitude: number, longitude: number) => {
@@ -523,6 +527,15 @@ export function AddDestinationModal({
       alert("Entry fee cannot be negative");
       return;
     }
+    if (formData.durationHoursValue === null || Number.isNaN(formData.durationHoursValue)) {
+      setDurationValidationError("Estimated stay duration is required.");
+      return;
+    }
+    if (formData.durationHoursValue < 0.5 || formData.durationHoursValue > 12) {
+      setDurationValidationError("Estimated stay duration must be between 0.5 and 12 hours.");
+      return;
+    }
+    setDurationValidationError(null);
     if (
       formData.location.lat === null ||
       formData.location.lng === null
@@ -548,6 +561,7 @@ export function AddDestinationModal({
         categories: selectedCategories,
         features: featuresByCategory,
         estimatedCost: formData.entryFeeValue,
+        durationHours: formData.durationHoursValue,
         lat: Number(formData.location.lat),
         lng: Number(formData.location.lng),
         latitude: Number(formData.location.lat),
@@ -654,6 +668,45 @@ export function AddDestinationModal({
               placeholder="0.00"
               className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2">
+              Estimated Stay Duration (hours) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min="0.5"
+              max="12"
+              step="0.5"
+              required
+              value={formData.durationHoursValue ?? ""}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  durationHoursValue:
+                    e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              onBlur={() => {
+                if (formData.durationHoursValue === null) {
+                  setDurationValidationError("Estimated stay duration is required.");
+                  return;
+                }
+                if (formData.durationHoursValue < 0.5 || formData.durationHoursValue > 12) {
+                  setDurationValidationError(
+                    "Estimated stay duration must be between 0.5 and 12 hours."
+                  );
+                  return;
+                }
+                setDurationValidationError(null);
+              }}
+              placeholder="e.g. 2.5"
+              className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+            {durationValidationError ? (
+              <p className="text-sm text-red-700 mt-1">{durationValidationError}</p>
+            ) : null}
           </div>
 
           <div>

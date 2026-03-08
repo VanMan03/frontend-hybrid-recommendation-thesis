@@ -43,6 +43,7 @@ export function Destinations() {
       name: string;
       description: string;
       estimatedCost: number;
+      durationHours: number;
       location: {
         lat: number;
         lng: number;

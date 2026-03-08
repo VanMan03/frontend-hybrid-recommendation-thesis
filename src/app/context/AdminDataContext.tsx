@@ -16,6 +16,8 @@ export type Destination = {
   name: string;
   description: string;
   estimatedCost: number;
+  durationHours?: number;
+  duration?: number;
   category: string | string[]; // display only
   features:
     | string[]
@@ -59,6 +61,7 @@ export type CreateDestinationPayload = {
     | Record<string, number>
     | Record<string, string[] | Record<string, number>>;
   estimatedCost: number;
+  durationHours: number;
   latitude?: number;
   longitude?: number;
   lat?: number;

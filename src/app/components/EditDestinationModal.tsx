@@ -46,6 +46,7 @@ interface EditDestinationModalProps {
       name: string;
       description: string;
       estimatedCost: number;
+      durationHours: number;
       location: {
         lat: number;
         lng: number;
@@ -76,11 +77,21 @@ export function EditDestinationModal({
   const getLongitude = (value?: Destination["location"]) =>
     value?.lng ?? value?.longitude ?? null;
 
+  const getDurationHours = (value: Destination) =>
+    value.durationHours ??
+    (typeof (value as Destination & { duration?: number }).duration === "number"
+      ? (value as Destination & { duration?: number }).duration
+      : null);
+
   const [name, setName] = useState(destination.name);
   const [description, setDescription] = useState(destination.description);
   const [estimatedCost, setEstimatedCost] = useState(
     destination.estimatedCost.toString()
   );
+  const [durationHours, setDurationHours] = useState(
+    getDurationHours(destination)?.toString() ?? ""
+  );
+  const [durationValidationError, setDurationValidationError] = useState<string | null>(null);
   const [location, setLocation] = useState({
     lat: getLatitude(destination.location),
     lng: getLongitude(destination.location),
@@ -111,6 +122,8 @@ export function EditDestinationModal({
     setName(destination.name);
     setDescription(destination.description);
     setEstimatedCost(destination.estimatedCost.toString());
+    setDurationHours(getDurationHours(destination)?.toString() ?? "");
+    setDurationValidationError(null);
     setLocation({
       lat: getLatitude(destination.location),
       lng: getLongitude(destination.location),
@@ -329,6 +342,16 @@ export function EditDestinationModal({
       alert("Please select a destination location on the map");
       return;
     }
+    const parsedDurationHours = Number(durationHours);
+    if (!durationHours.trim() || Number.isNaN(parsedDurationHours)) {
+      setDurationValidationError("Estimated stay duration is required.");
+      return;
+    }
+    if (parsedDurationHours < 0.5 || parsedDurationHours > 12) {
+      setDurationValidationError("Estimated stay duration must be between 0.5 and 12 hours.");
+      return;
+    }
+    setDurationValidationError(null);
 
     setLoading(true);
 
@@ -342,6 +365,7 @@ export function EditDestinationModal({
         name: name.trim(),
         description: description.trim(),
         estimatedCost: Number(estimatedCost),
+        durationHours: parsedDurationHours,
         location: {
           lat: location.lat,
           lng: location.lng,
@@ -415,6 +439,38 @@ export function EditDestinationModal({
               onChange={(e) => setEstimatedCost(e.target.value)}
               className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Estimated Stay Duration (hours) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              max="12"
+              value={durationHours}
+              onChange={(e) => setDurationHours(e.target.value)}
+              onBlur={() => {
+                const parsed = Number(durationHours);
+                if (!durationHours.trim() || Number.isNaN(parsed)) {
+                  setDurationValidationError("Estimated stay duration is required.");
+                  return;
+                }
+                if (parsed < 0.5 || parsed > 12) {
+                  setDurationValidationError(
+                    "Estimated stay duration must be between 0.5 and 12 hours."
+                  );
+                  return;
+                }
+                setDurationValidationError(null);
+              }}
+              className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+            {durationValidationError ? (
+              <p className="text-sm text-red-700 mt-1">{durationValidationError}</p>
+            ) : null}
           </div>
 
           <div>
