@@ -6,6 +6,7 @@ export function Itineraries() {
   const { itineraries, destinations, fetchItineraries, fetchDestinations, loading, error } = useAdminData();
   const [selectedItinerary, setSelectedItinerary] = useState<string | null>(null);
   const [expandedDestinationsId, setExpandedDestinationsId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<string>('');
 
   useEffect(() => {
     fetchDestinations();
@@ -40,6 +41,55 @@ export function Itineraries() {
   const mappedItineraries = useMemo(
     () =>
       itineraries.map((itinerary: any, index: number) => {
+        const formatBudgetValue = (value: any): string | null => {
+          if (value === null || value === undefined) return null;
+          if (typeof value === 'string' || typeof value === 'number') return String(value);
+          if (typeof value === 'object') {
+            const label = value.label ?? value.range ?? value.name;
+            if (label) return String(label);
+            const min = value.min ?? value.minimum ?? value.lower ?? value.low ?? value.from;
+            const max = value.max ?? value.maximum ?? value.upper ?? value.high ?? value.to;
+            if (min !== undefined || max !== undefined) {
+              if (min !== undefined && max !== undefined) return `${min} - ${max}`;
+              if (min !== undefined) return `>= ${min}`;
+              if (max !== undefined) return `<= ${max}`;
+            }
+          }
+          return null;
+        };
+
+        const resolveBudgetRange = (source: any): string => {
+          if (!source) return 'N/A';
+
+          const mode = typeof source?.budgetMode === 'string' ? source.budgetMode : null;
+          const maxBudget = source?.maxBudget ?? source?.budgetMax ?? source?.max_budget;
+          const totalCost = source?.totalCost ?? source?.total_cost ?? source?.costTotal;
+
+          if (mode === 'constrained') {
+            const maxValue = formatBudgetValue(maxBudget);
+            if (maxValue) return `<= ${maxValue}`;
+          }
+
+          if (mode === 'unconstrained') {
+            if (totalCost !== undefined && totalCost !== null && totalCost !== '') {
+              return `Unconstrained (${totalCost})`;
+            }
+            return 'Unconstrained';
+          }
+
+          const value =
+            formatBudgetValue(source?.budgetRange) ??
+            formatBudgetValue(source?.budget) ??
+            formatBudgetValue(source?.budgetTier) ??
+            formatBudgetValue(source?.budget_range) ??
+            formatBudgetValue(source?.budgetRangeLabel) ??
+            formatBudgetValue(source?.budget_range_label) ??
+            formatBudgetValue(maxBudget) ??
+            formatBudgetValue(totalCost);
+
+          return value ?? 'N/A';
+        };
+
         const id = String(itinerary?.id || itinerary?._id || `itinerary-${index + 1}`);
         const user =
           itinerary?.user?.name ||
@@ -48,7 +98,12 @@ export function Itineraries() {
           itinerary?.userName ||
           itinerary?.user ||
           'Unknown User';
-        const budgetRange = itinerary?.budgetRange || itinerary?.budget || itinerary?.budgetTier || 'N/A';
+        const budgetRange =
+          resolveBudgetRange(itinerary) ||
+          resolveBudgetRange(itinerary?.preferences) ||
+          resolveBudgetRange(itinerary?.userPreferences) ||
+          resolveBudgetRange(itinerary?.user) ||
+          'N/A';
         const rawDestinations =
           itinerary?.destinations ||
           itinerary?.destinationIds ||
@@ -98,12 +153,14 @@ export function Itineraries() {
 
         const dateValue = itinerary?.dateGenerated || itinerary?.createdAt || itinerary?.updatedAt;
         const parsedDate = dateValue ? new Date(dateValue) : null;
-        const dateGenerated =
-          parsedDate && !Number.isNaN(parsedDate.getTime())
-            ? parsedDate.toLocaleDateString()
-            : dateValue
-              ? String(dateValue)
-              : 'N/A';
+        const isValidDate = parsedDate && !Number.isNaN(parsedDate.getTime());
+        const dateGenerated = isValidDate
+          ? parsedDate!.toLocaleDateString()
+          : dateValue
+            ? String(dateValue)
+            : 'N/A';
+        const dateTimestamp = isValidDate ? parsedDate!.getTime() : null;
+        const dateISO = isValidDate ? parsedDate!.toISOString().slice(0, 10) : '';
 
         return {
           id,
@@ -111,10 +168,24 @@ export function Itineraries() {
           budgetRange,
           destinations: destinationList || 'N/A',
           dateGenerated,
+          dateTimestamp,
+          dateISO,
         };
       }),
     [itineraries, destinationNameById]
   );
+
+  const displayedItineraries = useMemo(() => {
+    const filtered = dateFilter
+      ? mappedItineraries.filter((itinerary) => itinerary.dateISO === dateFilter)
+      : mappedItineraries;
+
+    return [...filtered].sort((a, b) => {
+      const aTime = a.dateTimestamp ?? -1;
+      const bTime = b.dateTimestamp ?? -1;
+      return bTime - aTime;
+    });
+  }, [mappedItineraries, dateFilter]);
 
   const selected = mappedItineraries.find((itinerary) => itinerary.id === selectedItinerary) || null;
 
@@ -131,15 +202,34 @@ export function Itineraries() {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search + Date Filter */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search itineraries..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search itineraries..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            {dateFilter && (
+              <button
+                type="button"
+                onClick={() => setDateFilter('')}
+                className="px-3 py-2 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -150,24 +240,22 @@ export function Itineraries() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">User</th>
-                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Budget Range</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Destinations</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Date</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {!loading && mappedItineraries.length === 0 && (
+              {!loading && displayedItineraries.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
                     No itineraries found.
                   </td>
                 </tr>
               )}
-              {mappedItineraries.map((itinerary) => (
+              {displayedItineraries.map((itinerary) => (
                 <tr key={itinerary.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-gray-900">{itinerary.user}</td>
-                  <td className="px-6 py-4 text-gray-900 text-sm">{itinerary.budgetRange}</td>
                   <td className="px-6 py-4 text-gray-600 text-sm w-64 max-w-64">
                     {(() => {
                       const destinationItems = String(itinerary.destinations || '')
@@ -253,11 +341,6 @@ export function Itineraries() {
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase">User</label>
                 <p className="mt-1 text-sm text-gray-900">{selected.user}</p>
-              </div>
-              
-              <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase">Budget Range</label>
-                <p className="mt-1 text-sm text-gray-900">{selected.budgetRange}</p>
               </div>
               
               <div>
