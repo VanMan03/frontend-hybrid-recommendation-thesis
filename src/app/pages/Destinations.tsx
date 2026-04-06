@@ -44,6 +44,7 @@ export function Destinations() {
       description: string;
       estimatedCost: number;
       durationHours: number;
+      locationScope: Destination["locationScope"];
       location: {
         lat: number;
         lng: number;
@@ -185,7 +186,7 @@ export function Destinations() {
                   Features
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold">
-                  Entry Fee
+                  Estimated Fee
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold">
                   Status

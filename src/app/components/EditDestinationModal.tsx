@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Save } from "lucide-react";
-import { type Destination } from "@/app/context/AdminDataContext";
+import { type Destination, type LocationScope } from "@/app/context/AdminDataContext";
 import { LocationMap } from "@/app/components/LocationMap";
 
 type UploadedImage = {
@@ -37,6 +37,28 @@ const CLOUDINARY_WIDGET_SRC =
   "https://upload-widget.cloudinary.com/latest/global/all.js";
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, "");
 
+const LOCATION_SCOPE_OPTIONS: Array<{
+  value: LocationScope;
+  label: string;
+  helper: string;
+}> = [
+  {
+    value: "IN_BULUSAN",
+    label: "In Bulusan",
+    helper: "Located within Bulusan municipality.",
+  },
+  {
+    value: "NEAR_BULUSAN",
+    label: "Near Bulusan",
+    helper: "Outside Bulusan but nearby and recommended as a close alternative.",
+  },
+  {
+    value: "SORSOGON",
+    label: "Within Sorsogon",
+    helper: "Within Sorsogon province but not in Bulusan.",
+  },
+];
+
 interface EditDestinationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,6 +69,7 @@ interface EditDestinationModalProps {
       description: string;
       estimatedCost: number;
       durationHours: number;
+      locationScope: LocationScope;
       location: {
         lat: number;
         lng: number;
@@ -85,6 +108,9 @@ export function EditDestinationModal({
 
   const [name, setName] = useState(destination.name);
   const [description, setDescription] = useState(destination.description);
+  const [locationScope, setLocationScope] = useState<LocationScope>(
+    destination.locationScope ?? "IN_BULUSAN"
+  );
   const [estimatedCost, setEstimatedCost] = useState(
     destination.estimatedCost.toString()
   );
@@ -121,6 +147,7 @@ export function EditDestinationModal({
 
     setName(destination.name);
     setDescription(destination.description);
+    setLocationScope(destination.locationScope ?? "IN_BULUSAN");
     setEstimatedCost(destination.estimatedCost.toString());
     setDurationHours(getDurationHours(destination)?.toString() ?? "");
     setDurationValidationError(null);
@@ -364,6 +391,7 @@ export function EditDestinationModal({
       await onSave(destination._id, {
         name: name.trim(),
         description: description.trim(),
+        locationScope,
         estimatedCost: Number(estimatedCost),
         durationHours: parsedDurationHours,
         location: {
@@ -429,7 +457,27 @@ export function EditDestinationModal({
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Entry Fee (PHP)
+              Location Scope <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={locationScope}
+              onChange={(e) => setLocationScope(e.target.value as LocationScope)}
+              className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
+            >
+              {LOCATION_SCOPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-600 mt-1">
+              {LOCATION_SCOPE_OPTIONS.find((option) => option.value === locationScope)?.helper}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Estimated Fee (PHP)
             </label>
             <input
               type="number"

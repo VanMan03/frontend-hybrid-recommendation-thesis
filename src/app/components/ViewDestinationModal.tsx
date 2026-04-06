@@ -66,6 +66,25 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
   const durationText =
     durationHours === null ? "Not available" : `${durationHours} hour${durationHours === 1 ? "" : "s"}`;
 
+  const locationScope = destination.locationScope ?? "IN_BULUSAN";
+  const locationScopeMeta: Record<
+    "IN_BULUSAN" | "NEAR_BULUSAN" | "SORSOGON",
+    { label: string; message: string }
+  > = {
+    IN_BULUSAN: {
+      label: "In Bulusan",
+      message: "This destination is within Bulusan municipality.",
+    },
+    NEAR_BULUSAN: {
+      label: "Near Bulusan",
+      message: "This destination is outside Bulusan but nearby and a strong alternative.",
+    },
+    SORSOGON: {
+      label: "Within Sorsogon",
+      message: "This destination is in Sorsogon province but not in Bulusan.",
+    },
+  };
+
   const getStatusColor = (isActive: boolean) =>
     isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
 
@@ -150,14 +169,21 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
                   {featuresText || 'No features'}
                 </span>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-700">Location Scope:</span>
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-700">
+                  {locationScopeMeta[locationScope].label}
+                </span>
+              </div>
+              <p className="text-xs text-gray-600">{locationScopeMeta[locationScope].message}</p>
             </div>
           </div>
 
           {/* Details Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Entry Fee */}
+            {/* Estimated Fee */}
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-xs font-semibold text-blue-900 uppercase mb-2">Entry Fee</p>
+              <p className="text-xs font-semibold text-blue-900 uppercase mb-2">Estimated Fee</p>
               <p className="text-xl font-bold text-blue-600">PHP {destination.estimatedCost}</p>
             </div>
 
