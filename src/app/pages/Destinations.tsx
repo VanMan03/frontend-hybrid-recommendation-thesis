@@ -30,7 +30,7 @@ export function Destinations() {
     updates: {
       category: string[];
       categories: string[];
-      features: Record<string, string[]>;
+      features: string[] | Record<string, string[]>;
     }
   ) => {
     await updateDestination(destinationId, updates);
@@ -117,12 +117,12 @@ export function Destinations() {
     return Array.from(new Set(normalizedFeatures)).join(", ");
   };
 
-  const formatCategory = (category: Destination["category"]) => {
-    if (Array.isArray(category)) {
-      return category.join(", ");
+  const formatCategory = (destination: Destination) => {
+    const categories = destination.categories ?? destination.category;
+    if (Array.isArray(categories)) {
+      return categories.join(", ");
     }
-
-    return category;
+    return categories;
   };
 
   return (
@@ -209,7 +209,7 @@ export function Destinations() {
                     <td className="px-6 py-4">
                       <p className="font-semibold">{dest.name}</p>
                     </td>
-                    <td className="px-6 py-4">{formatCategory(dest.category)}</td>
+                    <td className="px-6 py-4">{formatCategory(dest)}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {formatFeatures(dest.features) || "No features"}
                     </td>

@@ -26,18 +26,23 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
   const toLabel = (feature: string) => featureLabelMap.get(feature) ?? feature;
 
   const destinationImage = destination.images?.[0]?.url ?? destination.image?.[0]?.url;
-  const categoryText = Array.isArray(destination.category)
-    ? destination.category.join(", ")
-    : destination.category;
+  const categorySource = destination.categories ?? destination.category;
+  const categoryText = Array.isArray(categorySource)
+    ? categorySource.join(", ")
+    : categorySource;
   const featuresList = Array.isArray(destination.features)
     ? destination.features.map(toLabel)
     : Object.entries(destination.features ?? {})
         .flatMap(([category, value]) => {
+          if (Array.isArray(value)) {
+            return value.map((feature) => toLabel(feature));
+          }
+
           if (typeof value === "number") {
             return value > 0 ? [toLabel(category)] : [];
           }
 
-          if (!value || typeof value !== "object" || Array.isArray(value)) {
+          if (!value || typeof value !== "object") {
             return [];
           }
 
@@ -68,7 +73,7 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
 
   const locationScope = destination.locationScope ?? "IN_BULUSAN";
   const locationScopeMeta: Record<
-    "IN_BULUSAN" | "NEAR_BULUSAN" | "SORSOGON",
+    "IN_BULUSAN" | "NEAR_BULUSAN" | "SORSOGON" | "BICOL_REGION" | "OUTSIDE_BICOL",
     { label: string; message: string }
   > = {
     IN_BULUSAN: {
@@ -82,6 +87,14 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
     SORSOGON: {
       label: "Within Sorsogon",
       message: "This destination is in Sorsogon province but not in Bulusan.",
+    },
+    BICOL_REGION: {
+      label: "Within Bicol region",
+      message: "This destination is within the Bicol region but outside Sorsogon.",
+    },
+    OUTSIDE_BICOL: {
+      label: "Outside Bicol",
+      message: "This destination is outside the Bicol region.",
     },
   };
 

@@ -7,7 +7,7 @@ import { useDestinationTaxonomy } from "@/app/hooks/useDestinationTaxonomy";
 type EditCategoryUpdates = {
   category: string[];
   categories: string[];
-  features: Record<string, string[]>;
+  features: string[] | Record<string, string[]>;
 };
 
 interface EditCategoryModalProps {
@@ -98,9 +98,10 @@ export function EditCategoryModal({
     }
 
     const firstCategory = categories[0] ?? "Nature Tourism";
-    const initialCategory = Array.isArray(destination.category)
-      ? destination.category[0]
-      : destination.category;
+    const categorySource = destination.categories ?? destination.category;
+    const initialCategory = Array.isArray(categorySource)
+      ? categorySource[0]
+      : categorySource;
     const nextActiveCategory = initialCategory && categories.includes(initialCategory)
       ? initialCategory
       : firstCategory;
@@ -193,12 +194,16 @@ export function EditCategoryModal({
     }
     setCategoryValidationError(null);
 
+    const flattenedFeatures = Array.from(
+      new Set(Object.values(featuresByCategory).flat())
+    );
+
     setIsSaving(true);
     try {
       await onSave(destination._id, {
         category: nextCategories,
         categories: nextCategories,
-        features: featuresByCategory,
+        features: flattenedFeatures,
       });
       onClose();
     } catch {

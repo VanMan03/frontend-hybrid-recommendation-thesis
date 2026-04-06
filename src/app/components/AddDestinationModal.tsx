@@ -71,6 +71,16 @@ const LOCATION_SCOPE_OPTIONS: Array<{
     label: "Within Sorsogon",
     helper: "Within Sorsogon province but not in Bulusan.",
   },
+  {
+    value: "BICOL_REGION",
+    label: "Within Bicol region",
+    helper: "Located within the Bicol region but outside Sorsogon.",
+  },
+  {
+    value: "OUTSIDE_BICOL",
+    label: "Outside Bicol",
+    helper: "Located outside the Bicol region.",
+  },
 ];
 
 export function AddDestinationModal({

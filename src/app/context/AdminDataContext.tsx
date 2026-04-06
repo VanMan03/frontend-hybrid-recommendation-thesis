@@ -11,7 +11,12 @@ import { uploadDestinationImage } from "../../services/api";
    TYPES (MATCH BACKEND)
 ======================= */
 
-export type LocationScope = "IN_BULUSAN" | "NEAR_BULUSAN" | "SORSOGON";
+export type LocationScope =
+  | "IN_BULUSAN"
+  | "NEAR_BULUSAN"
+  | "SORSOGON"
+  | "BICOL_REGION"
+  | "OUTSIDE_BICOL";
 
 export type Destination = {
   _id: string;
@@ -22,6 +27,7 @@ export type Destination = {
   duration?: number;
   locationScope?: LocationScope;
   category: string | string[]; // display only
+  categories?: string[]; // preferred category list from newer payloads
   features:
     | string[]
     | Record<string, string[] | number | Record<string, number>>; // display only
