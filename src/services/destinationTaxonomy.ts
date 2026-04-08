@@ -30,7 +30,9 @@ const normalizeTaxonomy = (
 };
 
 export const getDestinationTaxonomy = async (): Promise<DestinationTaxonomyMap> => {
-  const response = await apiRequest("/admin/destination-taxonomy");
+  const response = await apiRequest(
+    `/admin/destination-taxonomy?t=${Date.now()}`
+  );
   return normalizeTaxonomy(response as TaxonomyResponse | DestinationTaxonomyMap);
 };
 
@@ -64,7 +66,9 @@ const normalizeInterestsSchema = (
 };
 
 export const getDestinationInterestsSchema = async (): Promise<DestinationTaxonomyMap> => {
-  const response = await apiRequest("/destinations/interests-schema");
+  const response = await apiRequest(
+    `/destinations/interests-schema?t=${Date.now()}`
+  );
   return normalizeInterestsSchema(response as InterestSchemaResponse);
 };
 

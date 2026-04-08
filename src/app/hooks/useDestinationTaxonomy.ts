@@ -51,14 +51,16 @@ export function useDestinationTaxonomy(): UseDestinationTaxonomyResult {
     setLoading(true);
     setError(null);
     try {
+      // Prefer the admin taxonomy for admin mutations to avoid mismatches
+      // with the public interests schema.
       let validFeatures: DestinationTaxonomyMap = {};
       try {
-        validFeatures = await getDestinationInterestsSchema();
-      } catch {
         validFeatures = await getDestinationTaxonomy();
+      } catch {
+        validFeatures = await getDestinationInterestsSchema();
       }
       if (Object.keys(validFeatures).length === 0) {
-        validFeatures = await getDestinationTaxonomy();
+        validFeatures = await getDestinationInterestsSchema();
       }
       if (Object.keys(validFeatures).length > 0) {
         setTaxonomy(validFeatures);
@@ -139,6 +141,18 @@ export function useDestinationTaxonomy(): UseDestinationTaxonomyResult {
       );
     },
     deleteFeature: async (category: string, feature: string) => {
+      // Optimistically remove from local state so the UI updates immediately.
+      setTaxonomy((prev) => {
+        const current = prev[category];
+        if (!current) {
+          return prev;
+        }
+        const nextFeatures = current.filter((item) => item !== feature);
+        if (nextFeatures.length === current.length) {
+          return prev;
+        }
+        return { ...prev, [category]: nextFeatures };
+      });
       await runMutation(() => deleteDestinationFeature(category, feature));
     },
   };
