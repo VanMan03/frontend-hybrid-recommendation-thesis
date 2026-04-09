@@ -31,6 +31,8 @@ export function Destinations() {
       category: string[];
       categories: string[];
       features: string[] | Record<string, string[]>;
+      mainInterests?: string[];
+      subInterests?: string[];
     }
   ) => {
     await updateDestination(destinationId, updates);

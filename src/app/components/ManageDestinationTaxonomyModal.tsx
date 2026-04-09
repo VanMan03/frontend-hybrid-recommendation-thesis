@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { useDestinationTaxonomy } from "@/app/hooks/useDestinationTaxonomy";
+import { useAdminData } from "@/app/context/AdminDataContext";
 
 interface ManageDestinationTaxonomyModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ export function ManageDestinationTaxonomyModal({
   isOpen,
   onClose,
 }: ManageDestinationTaxonomyModalProps) {
+  const { destinations } = useAdminData();
   const {
     taxonomy,
     categories,
@@ -67,6 +69,100 @@ export function ManageDestinationTaxonomyModal({
   );
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
   const [formValidationError, setFormValidationError] = useState<string | null>(null);
+
+  const toInterestId = (label: string) => {
+    const normalized = label
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return normalized.replace(/_tourism$/, "");
+  };
+
+  const toFeatureKey = (value: string) =>
+    value
+      .replace(/&/g, "")
+      .replace(/\s+/g, "")
+      .replace(/-/g, "")
+      .toLowerCase();
+
+  const getFeatureCandidates = (label: string) =>
+    new Set([
+      label,
+      label.toLowerCase(),
+      toInterestId(label),
+      toFeatureKey(label),
+    ]);
+
+  const isFeatureUsed = (
+    featureLabel: string,
+    categoryLabel: string,
+    destination: typeof destinations[number]
+  ) => {
+    const candidates = getFeatureCandidates(featureLabel);
+    const matches = (value: string) => {
+      if (candidates.has(value) || candidates.has(value.toLowerCase())) {
+        return true;
+      }
+      if (candidates.has(toFeatureKey(value))) {
+        return true;
+      }
+      if (candidates.has(toInterestId(value))) {
+        return true;
+      }
+      return false;
+    };
+
+    if (Array.isArray(destination.subInterests)) {
+      if (destination.subInterests.some(matches)) {
+        return true;
+      }
+    }
+
+    const features = destination.features;
+    if (Array.isArray(features)) {
+      if (features.some(matches)) {
+        return true;
+      }
+      return false;
+    }
+
+    if (!features || typeof features !== "object") {
+      return false;
+    }
+
+    const categoryValue = (features as Record<string, unknown>)[categoryLabel];
+    if (Array.isArray(categoryValue) && categoryValue.some(matches)) {
+      return true;
+    }
+    if (categoryValue && typeof categoryValue === "object") {
+      if (Object.keys(categoryValue as Record<string, unknown>).some(matches)) {
+        return true;
+      }
+    }
+
+    return Object.entries(features as Record<string, unknown>).some(([, value]) => {
+      if (Array.isArray(value)) {
+        return value.some(matches);
+      }
+      if (value && typeof value === "object") {
+        return Object.keys(value as Record<string, unknown>).some(matches);
+      }
+      return false;
+    });
+  };
+
+  const featureUsage = useMemo(() => {
+    if (!actionDialog || actionDialog.kind !== "delete-feature") {
+      return [] as typeof destinations;
+    }
+    if (!selectedCategory) {
+      return [] as typeof destinations;
+    }
+    return destinations.filter((destination) =>
+      isFeatureUsed(actionDialog.feature, selectedCategory, destination)
+    );
+  }, [actionDialog, destinations, selectedCategory]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -150,6 +246,13 @@ export function ManageDestinationTaxonomyModal({
 
   const handleActionConfirm = async () => {
     if (!actionDialog) {
+      return;
+    }
+
+    if (actionDialog.kind === "delete-feature" && featureUsage.length > 0) {
+      setFormValidationError(
+        `Cannot delete "${actionDialog.feature}". ${featureUsage.length} destination(s) are currently using it.`
+      );
       return;
     }
 
@@ -487,9 +590,19 @@ export function ManageDestinationTaxonomyModal({
               )}
 
               {actionDialog.kind === "delete-feature" && (
-                <p className="text-sm text-gray-700">
-                  Delete feature <span className="font-semibold">{actionDialog.feature}</span>?
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700">
+                    Delete feature <span className="font-semibold">{actionDialog.feature}</span>?
+                  </p>
+                  {featureUsage.length > 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <p className="font-semibold">
+                        This feature is still used by {featureUsage.length} destination(s).
+                      </p>
+                      <p>Remove it from those destinations before deleting.</p>
+                    </div>
+                  ) : null}
+                </div>
               )}
             </div>
             <div className="p-5 border-t bg-gray-50 flex justify-end gap-2">
@@ -502,7 +615,7 @@ export function ManageDestinationTaxonomyModal({
               </button>
               <button
                 onClick={() => void handleActionConfirm()}
-                disabled={isActionSubmitting}
+                disabled={isActionSubmitting || (actionDialog.kind === "delete-feature" && featureUsage.length > 0)}
                 className={`px-3 py-2 rounded-lg text-white ${
                   actionDialog.kind.includes("delete")
                     ? "bg-red-600 hover:bg-red-700"

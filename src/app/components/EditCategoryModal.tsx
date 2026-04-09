@@ -3,11 +3,14 @@ import { X, Save } from "lucide-react";
 import { type Destination } from "@/app/context/AdminDataContext";
 import { getCategoryColor, tourismCategories } from "@/app/data/tourismCategories";
 import { useDestinationTaxonomy } from "@/app/hooks/useDestinationTaxonomy";
+import { getDestinationInterestsSchemaRaw } from "@/services/destinationTaxonomy";
 
 type EditCategoryUpdates = {
   category: string[];
   categories: string[];
   features: string[] | Record<string, string[]>;
+  mainInterests?: string[];
+  subInterests?: string[];
 };
 
 interface EditCategoryModalProps {
@@ -83,6 +86,10 @@ export function EditCategoryModal({
   >({});
   const [isSaving, setIsSaving] = useState(false);
   const [categoryValidationError, setCategoryValidationError] = useState<string | null>(null);
+  const [interestIdMap, setInterestIdMap] = useState<Record<string, string>>({});
+  const [subInterestIdMap, setSubInterestIdMap] = useState<
+    Record<string, Record<string, string>>
+  >({});
 
   useEffect(() => {
     if (!isOpen) {
@@ -91,6 +98,62 @@ export function EditCategoryModal({
 
     void refetch();
   }, [isOpen, refetch]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const loadInterestIds = async () => {
+      try {
+        const schema = await getDestinationInterestsSchemaRaw();
+        const mainMap: Record<string, string> = {};
+        const subMap: Record<string, Record<string, string>> = {};
+
+        (schema.mainInterests ?? []).forEach((main) => {
+          const label = main.label?.trim();
+          const id = main.id?.trim();
+          if (!label) {
+            return;
+          }
+          if (id) {
+            mainMap[label] = id;
+          }
+          const subEntries = Array.isArray(main.subInterests)
+            ? main.subInterests
+            : [];
+          const subLookup: Record<string, string> = {};
+          subEntries.forEach((sub) => {
+            const subLabel = sub.label?.trim();
+            const subId = sub.id?.trim();
+            if (subLabel && subId) {
+              subLookup[subLabel] = subId;
+            }
+          });
+          if (Object.keys(subLookup).length > 0) {
+            subMap[label] = subLookup;
+          }
+        });
+
+        setInterestIdMap(mainMap);
+        setSubInterestIdMap(subMap);
+      } catch {
+        setInterestIdMap({});
+        setSubInterestIdMap({});
+      }
+    };
+
+    void loadInterestIds();
+  }, [isOpen]);
+
+  const toInterestId = (label: string) => {
+    const normalized = label
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return normalized.replace(/_tourism$/, "");
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -194,16 +257,26 @@ export function EditCategoryModal({
     }
     setCategoryValidationError(null);
 
-    const flattenedFeatures = Array.from(
-      new Set(Object.values(featuresByCategory).flat())
-    );
+    const mainInterests = nextCategories
+      .map((category) => interestIdMap[category] ?? toInterestId(category))
+      .filter(Boolean);
+    const subInterests = Object.entries(featuresByCategory)
+      .flatMap(([category, features]) =>
+        features.map((feature) => {
+          const mapped = subInterestIdMap[category]?.[feature];
+          return mapped ?? toInterestId(feature);
+        })
+      )
+      .filter(Boolean);
 
     setIsSaving(true);
     try {
       await onSave(destination._id, {
         category: nextCategories,
         categories: nextCategories,
-        features: flattenedFeatures,
+        features: featuresByCategory,
+        mainInterests,
+        subInterests,
       });
       onClose();
     } catch {

@@ -54,6 +54,8 @@ export type Destination = {
     url: string;
     publicId: string;
   }[];
+  mainInterests?: string[];
+  subInterests?: string[];
 };
 
 export type CreateDestinationPayload = {

@@ -2,7 +2,7 @@ import { apiRequest } from "./api";
 
 export type DestinationTaxonomyMap = Record<string, string[]>;
 
-type InterestSchemaResponse = {
+export type InterestSchemaResponse = {
   mainInterests?: Array<{
     id?: string;
     label?: string;
@@ -70,6 +70,13 @@ export const getDestinationInterestsSchema = async (): Promise<DestinationTaxono
     `/destinations/interests-schema?t=${Date.now()}`
   );
   return normalizeInterestsSchema(response as InterestSchemaResponse);
+};
+
+export const getDestinationInterestsSchemaRaw = async (): Promise<InterestSchemaResponse> => {
+  const response = await apiRequest(
+    `/destinations/interests-schema?t=${Date.now()}`
+  );
+  return response as InterestSchemaResponse;
 };
 
 export const replaceDestinationTaxonomy = async (

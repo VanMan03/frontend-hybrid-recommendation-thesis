@@ -1,9 +1,10 @@
 import { Search, UserCheck, UserX, Eye } from 'lucide-react';
 import { useAdminData } from '@/app/context/AdminDataContext';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export function Users() {
   const { users, itineraries, fetchUsers, fetchItineraries } = useAdminData();
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -111,6 +112,16 @@ export function Users() {
     return typeof providedCount === 'number' && !Number.isNaN(providedCount) ? providedCount : 0;
   };
 
+  const filteredUsers = useMemo(() => {
+    const query = normalizeValue(searchTerm);
+    if (!query) return users;
+
+    return users.filter((user) => {
+      const displayName = getDisplayName(user);
+      return normalizeValue(displayName).includes(query);
+    });
+  }, [users, searchTerm]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -126,7 +137,9 @@ export function Users() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search users by name or ID..."
+            placeholder="Search users by name..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
@@ -146,7 +159,7 @@ export function Users() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {users.map((user, index) => {
+            {filteredUsers.map((user, index) => {
               const displayName = getDisplayName(user);
               const userId = getUserId(user, index);
               const activityLevel = getActivityLevel(user);
