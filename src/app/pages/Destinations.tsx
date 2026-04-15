@@ -46,7 +46,6 @@ export function Destinations() {
       description: string;
       estimatedCost: number;
       durationHours: number;
-      locationScope: Destination["locationScope"];
       location: {
         lat: number;
         lng: number;

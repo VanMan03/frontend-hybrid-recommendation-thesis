@@ -71,33 +71,6 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
   const durationText =
     durationHours === null ? "Not available" : `${durationHours} hour${durationHours === 1 ? "" : "s"}`;
 
-  const locationScope = destination.locationScope ?? "IN_BULUSAN";
-  const locationScopeMeta: Record<
-    "IN_BULUSAN" | "NEAR_BULUSAN" | "SORSOGON" | "BICOL_REGION" | "OUTSIDE_BICOL",
-    { label: string; message: string }
-  > = {
-    IN_BULUSAN: {
-      label: "In Bulusan",
-      message: "This destination is within Bulusan municipality.",
-    },
-    NEAR_BULUSAN: {
-      label: "Near Bulusan",
-      message: "This destination is outside Bulusan but nearby and a strong alternative.",
-    },
-    SORSOGON: {
-      label: "Within Sorsogon",
-      message: "This destination is in Sorsogon province but not in Bulusan.",
-    },
-    BICOL_REGION: {
-      label: "Within Bicol region",
-      message: "This destination is within the Bicol region but outside Sorsogon.",
-    },
-    OUTSIDE_BICOL: {
-      label: "Outside Bicol",
-      message: "This destination is outside the Bicol region.",
-    },
-  };
-
   const getStatusColor = (isActive: boolean) =>
     isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
 
@@ -182,13 +155,6 @@ export function ViewDestinationModal({ isOpen, onClose, destination }: ViewDesti
                   {featuresText || 'No features'}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-700">Location Scope:</span>
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-700">
-                  {locationScopeMeta[locationScope].label}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600">{locationScopeMeta[locationScope].message}</p>
             </div>
           </div>
 

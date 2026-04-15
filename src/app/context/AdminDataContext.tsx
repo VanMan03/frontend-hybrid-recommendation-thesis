@@ -11,13 +11,6 @@ import { uploadDestinationImage } from "../../services/api";
    TYPES (MATCH BACKEND)
 ======================= */
 
-export type LocationScope =
-  | "IN_BULUSAN"
-  | "NEAR_BULUSAN"
-  | "SORSOGON"
-  | "BICOL_REGION"
-  | "OUTSIDE_BICOL";
-
 export type Destination = {
   _id: string;
   name: string;
@@ -25,7 +18,6 @@ export type Destination = {
   estimatedCost: number;
   durationHours?: number;
   duration?: number;
-  locationScope?: LocationScope;
   category: string | string[]; // display only
   categories?: string[]; // preferred category list from newer payloads
   features:
@@ -63,7 +55,6 @@ export type CreateDestinationPayload = {
   description: string;
   category: string | string[];
   categories?: string[];
-  locationScope?: LocationScope;
   images?: {
     url: string;
     publicId: string;

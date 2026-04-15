@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { X, Save } from "lucide-react";
 import { getCategoryColor, tourismCategories } from "@/app/data/tourismCategories";
-import { useAdminData, type LocationScope } from "@/app/context/AdminDataContext";
+import { useAdminData } from "@/app/context/AdminDataContext";
 import { LocationMap } from "@/app/components/LocationMap";
 import { useDestinationTaxonomy } from "@/app/hooks/useDestinationTaxonomy";
 
@@ -51,38 +51,6 @@ type AddressFormState = {
   fullAddress: string;
 };
 
-const LOCATION_SCOPE_OPTIONS: Array<{
-  value: LocationScope;
-  label: string;
-  helper: string;
-}> = [
-  {
-    value: "IN_BULUSAN",
-    label: "In Bulusan",
-    helper: "Located within Bulusan municipality.",
-  },
-  {
-    value: "NEAR_BULUSAN",
-    label: "Near Bulusan",
-    helper: "Outside Bulusan but nearby and recommended as a close alternative.",
-  },
-  {
-    value: "SORSOGON",
-    label: "Within Sorsogon",
-    helper: "Within Sorsogon province but not in Bulusan.",
-  },
-  {
-    value: "BICOL_REGION",
-    label: "Within Bicol region",
-    helper: "Located within the Bicol region but outside Sorsogon.",
-  },
-  {
-    value: "OUTSIDE_BICOL",
-    label: "Outside Bicol",
-    helper: "Located outside the Bicol region.",
-  },
-];
-
 export function AddDestinationModal({
   isOpen,
   onClose,
@@ -106,7 +74,6 @@ export function AddDestinationModal({
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    locationScope: "IN_BULUSAN" as LocationScope,
     activeCategory: defaultCategory,
     selectedFeaturesByCategory: {} as Record<string, string[]>,
     entryFeeValue: null as number | null,
@@ -371,7 +338,6 @@ export function AddDestinationModal({
     setFormData({
       name: "",
       description: "",
-      locationScope: "IN_BULUSAN",
       activeCategory: nextDefaultCategory,
       selectedFeaturesByCategory: {},
       entryFeeValue: null,
@@ -591,7 +557,6 @@ export function AddDestinationModal({
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        locationScope: formData.locationScope,
         category: selectedCategories,
         categories: selectedCategories,
         features: featuresByCategory,
@@ -681,32 +646,6 @@ export function AddDestinationModal({
               }
               className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500 resize-none"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold mb-2">
-              Location Scope <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={formData.locationScope}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  locationScope: e.target.value as LocationScope,
-                }))
-              }
-              className="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-teal-500"
-            >
-              {LOCATION_SCOPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-600 mt-1">
-              {LOCATION_SCOPE_OPTIONS.find((option) => option.value === formData.locationScope)
-                ?.helper}
-            </p>
           </div>
 
           <div>
