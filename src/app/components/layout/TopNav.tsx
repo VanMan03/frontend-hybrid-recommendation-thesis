@@ -85,8 +85,10 @@ const normalizeLogsToNotifications = (raw: unknown): NotificationItem[] => {
 export function TopNav() {
   const navigate = useNavigate();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const notificationContainerRef = useRef<HTMLDivElement | null>(null);
+  const profileContainerRef = useRef<HTMLDivElement | null>(null);
   const bellButtonRef = useRef<HTMLButtonElement | null>(null);
   const initialLastSeen = Number(localStorage.getItem(LAST_SEEN_KEY) || "0");
   const [lastSeenAt, setLastSeenAt] = useState(
@@ -233,11 +235,18 @@ export function TopNav() {
       ) {
         setIsNotificationOpen(false);
       }
+      if (
+        profileContainerRef.current &&
+        !profileContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsNotificationOpen(false);
+        setIsProfileMenuOpen(false);
       }
     };
 
@@ -380,38 +389,52 @@ export function TopNav() {
             )}
           </div>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                <LogOut className="size-4" />
-                Logout
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Confirm logout</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You will be signed out and redirected to the admin login page.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleLogout}>Logout</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="relative pl-4 border-l border-gray-200" ref={profileContainerRef}>
+            <button
+              type="button"
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              className="flex items-center gap-3 rounded-lg hover:bg-gray-100 px-2 py-1 transition-colors"
+              aria-label="Profile menu"
+              aria-expanded={isProfileMenuOpen}
+            >
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">Admin User</p>
+                <p className="text-xs text-gray-500">LGU Tourism Office</p>
+              </div>
+              <div className="p-2 bg-teal-100 rounded-full">
+                <User className="size-5 text-teal-700" />
+              </div>
+            </button>
 
-          <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">Admin User</p>
-              <p className="text-xs text-gray-500">LGU Tourism Office</p>
-            </div>
-            <div className="p-2 bg-teal-100 rounded-full">
-              <User className="size-5 text-teal-700" />
-            </div>
+            {isProfileMenuOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <LogOut className="size-4" />
+                      Logout
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirm logout</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You will be signed out and redirected to the admin login page.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleLogout}>
+                        Logout
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
           </div>
         </div>
       </div>

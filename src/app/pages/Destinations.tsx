@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Plus, Edit, Power, Eye, Tag, FolderTree } from "lucide-react";
 import { AddDestinationModal } from "@/app/components/AddDestinationModal";
 import { EditCategoryModal } from "@/app/components/EditCategoryModal";
@@ -9,7 +9,12 @@ import { useAdminData, type Destination } from "@/app/context/AdminDataContext";
 import { tourismCategories } from "@/app/data/tourismCategories";
 
 export function Destinations() {
+  const ITEMS_PER_PAGE = 10;
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedYear, setSelectedYear] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedDay, setSelectedDay] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isTaxonomyModalOpen, setIsTaxonomyModalOpen] = useState(false);
   const [editingDestination, setEditingDestination] =
@@ -21,9 +26,116 @@ export function Destinations() {
 
   const { destinations, loading, error, updateDestination } = useAdminData();
 
-  const filteredDestinations = destinations.filter((dest) =>
-    dest.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const parseCreatedDate = (value?: string) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const yearOptions = Array.from(
+    new Set(
+      destinations
+        .map((dest) => parseCreatedDate(dest.createdAt)?.getFullYear())
+        .filter((year): year is number => year !== undefined)
+    )
+  ).sort((a, b) => b - a);
+
+  const monthOptions = Array.from(
+    new Set(
+      destinations
+        .map((dest) => parseCreatedDate(dest.createdAt))
+        .filter((date): date is Date => date !== null)
+        .filter((date) =>
+          selectedYear === "all" ? true : date.getFullYear() === Number(selectedYear)
+        )
+        .map((date) => date.getMonth() + 1)
+    )
+  ).sort((a, b) => a - b);
+
+  const dayOptions = Array.from(
+    new Set(
+      destinations
+        .map((dest) => parseCreatedDate(dest.createdAt))
+        .filter((date): date is Date => date !== null)
+        .filter((date) =>
+          selectedYear === "all" ? true : date.getFullYear() === Number(selectedYear)
+        )
+        .filter((date) =>
+          selectedMonth === "all"
+            ? true
+            : date.getMonth() + 1 === Number(selectedMonth)
+        )
+        .map((date) => date.getDate())
+    )
+  ).sort((a, b) => a - b);
+
+  const matchesCreatedDateFilter = (destination: Destination) => {
+    if (
+      selectedYear === "all" &&
+      selectedMonth === "all" &&
+      selectedDay === "all"
+    ) {
+      return true;
+    }
+
+    const createdDate = parseCreatedDate(destination.createdAt);
+    if (!createdDate) return false;
+
+    if (
+      selectedYear !== "all" &&
+      createdDate.getFullYear() !== Number(selectedYear)
+    ) {
+      return false;
+    }
+
+    if (
+      selectedMonth !== "all" &&
+      createdDate.getMonth() + 1 !== Number(selectedMonth)
+    ) {
+      return false;
+    }
+
+    if (selectedDay !== "all" && createdDate.getDate() !== Number(selectedDay)) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const filteredDestinations = destinations.filter((dest) => {
+    const matchesName = dest.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    return matchesName && matchesCreatedDateFilter(dest);
+  });
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredDestinations.length / ITEMS_PER_PAGE)
   );
+  const paginatedDestinations = filteredDestinations.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedYear, selectedMonth, selectedDay]);
+
+  useEffect(() => {
+    setSelectedMonth("all");
+    setSelectedDay("all");
+  }, [selectedYear]);
+
+  useEffect(() => {
+    setSelectedDay("all");
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleEditCategorySave = async (
     destinationId: string,
@@ -126,6 +238,9 @@ export function Destinations() {
     return categories;
   };
 
+  const formatMonthName = (month: number) =>
+    new Date(2000, month - 1, 1).toLocaleString("en-US", { month: "long" });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -156,15 +271,53 @@ export function Destinations() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by destination name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border rounded-lg"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="relative md:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by destination name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border rounded-lg"
+            />
+          </div>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="w-full px-3 py-2.5 border rounded-lg bg-white"
+          >
+            <option value="all">All years</option>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="w-full px-3 py-2.5 border rounded-lg bg-white"
+          >
+            <option value="all">All months</option>
+            {monthOptions.map((month) => (
+              <option key={month} value={month}>
+                {formatMonthName(month)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={selectedDay}
+            onChange={(e) => setSelectedDay(e.target.value)}
+            className="w-full px-3 py-2.5 border rounded-lg bg-white"
+          >
+            <option value="all">All days</option>
+            {dayOptions.map((day) => (
+              <option key={day} value={day}>
+                {day}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -174,97 +327,131 @@ export function Destinations() {
         ) : error ? (
           <p className="p-6 text-red-600">{error}</p>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold">
-                  Destination
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold">
-                  Category
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold">
-                  Features
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold">
-                  Estimated Fee
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold">
-                  Status
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredDestinations.length === 0 ? (
+          <>
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No destinations found
-                  </td>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">
+                    Destination
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">
+                    Category
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">
+                    Features
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">
+                    Estimated Fee
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                filteredDestinations.map((dest) => (
-                  <tr key={dest._id}>
-                    <td className="px-6 py-4">
-                      <p className="font-semibold">{dest.name}</p>
-                    </td>
-                    <td className="px-6 py-4">{formatCategory(dest)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {formatFeatures(dest.features) || "No features"}
-                    </td>
-                    <td className="px-6 py-4">PHP {dest.estimatedCost}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          dest.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {dest.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setViewingDestination(dest)}
-                          className="p-2 hover:bg-blue-50 rounded"
-                          title="View destination details"
-                        >
-                          <Eye className="size-4" />
-                        </button>
-                        <button
-                          onClick={() => setEditingDestination(dest)}
-                          className="p-2 hover:bg-amber-50 rounded"
-                          title="Edit destination details"
-                        >
-                          <Edit className="size-4" />
-                        </button>
-                        <button
-                          onClick={() => setEditingCategoryDestination(dest)}
-                          className="p-2 hover:bg-teal-50 rounded"
-                          title="Edit category and features"
-                        >
-                          <Tag className="size-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleDestinationStatus(dest)}
-                          className={`p-2 rounded ${
-                            dest.isActive ? "hover:bg-red-50" : "hover:bg-green-50"
-                          }`}
-                          title={dest.isActive ? "Set inactive" : "Set active"}
-                        >
-                          <Power className="size-4" />
-                        </button>
-                      </div>
+              </thead>
+              <tbody className="divide-y">
+                {filteredDestinations.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-12 text-center text-gray-500"
+                    >
+                      No destinations found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  paginatedDestinations.map((dest) => (
+                    <tr key={dest._id}>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold">{dest.name}</p>
+                      </td>
+                      <td className="px-6 py-4">{formatCategory(dest)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {formatFeatures(dest.features) || "No features"}
+                      </td>
+                      <td className="px-6 py-4">PHP {dest.estimatedCost}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            dest.isActive
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {dest.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setViewingDestination(dest)}
+                            className="p-2 hover:bg-blue-50 rounded"
+                            title="View destination details"
+                          >
+                            <Eye className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingDestination(dest)}
+                            className="p-2 hover:bg-amber-50 rounded"
+                            title="Edit destination details"
+                          >
+                            <Edit className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingCategoryDestination(dest)}
+                            className="p-2 hover:bg-teal-50 rounded"
+                            title="Edit category and features"
+                          >
+                            <Tag className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleDestinationStatus(dest)}
+                            className={`p-2 rounded ${
+                              dest.isActive
+                                ? "hover:bg-red-50"
+                                : "hover:bg-green-50"
+                            }`}
+                            title={dest.isActive ? "Set inactive" : "Set active"}
+                          >
+                            <Power className="size-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            {filteredDestinations.length > 0 && (
+              <div className="flex items-center justify-between border-t px-6 py-4">
+                <p className="text-sm text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(totalPages, page + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

@@ -14,6 +14,8 @@ import { uploadDestinationImage } from "../../services/api";
 export type Destination = {
   _id: string;
   name: string;
+  createdAt?: string;
+  updatedAt?: string;
   description: string;
   estimatedCost: number;
   durationHours?: number;

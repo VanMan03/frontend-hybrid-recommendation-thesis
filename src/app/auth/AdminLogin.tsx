@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, Mail, LogIn } from "lucide-react";
+import { Lock, Mail, LogIn, Eye, EyeOff } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 
 type JwtPayload = {
   role: string;
 };
-
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -15,6 +14,7 @@ export default function AdminLogin() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,19 +44,16 @@ export default function AdminLogin() {
       const data = await res.json();
       console.log("LOGIN RESPONSE:", data);
 
-
       if (!res.ok) {
         throw new Error(data.message || "Login failed");
       }
 
-    const decoded = jwtDecode<JwtPayload>(data.token);
+      const decoded = jwtDecode<JwtPayload>(data.token);
 
-    if (decoded.role !== "admin") {
-            throw new Error("This account is not an admin");
-    }
+      if (decoded.role !== "admin") {
+        throw new Error("This account is not an admin");
+      }
 
-
-      // 🔑 Save admin token
       localStorage.setItem("adminToken", data.token);
 
       navigate("/admin/dashboard");
@@ -122,13 +119,25 @@ export default function AdminLogin() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-none"
-              placeholder="••••••••"
+              className="w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              placeholder="********"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+            >
+              {showPassword ? (
+                <EyeOff className="size-4" />
+              ) : (
+                <Eye className="size-4" />
+              )}
+            </button>
           </div>
         </div>
 
