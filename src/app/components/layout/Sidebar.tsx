@@ -7,7 +7,6 @@ import {
   Star,
   BarChart3,
   FileText,
-  Settings,
 } from "lucide-react";
 
 const navItems = [
@@ -18,7 +17,6 @@ const navItems = [
   { path: "/admin/feedback", label: "Ratings & Feedback", icon: Star },
   { path: "/admin/analytics", label: "Reports & Analytics", icon: BarChart3 },
   { path: "/admin/logs", label: "System Logs", icon: FileText },
-  { path: "/admin/content", label: "Content", icon: Settings },
 ];
 
 export function Sidebar() {

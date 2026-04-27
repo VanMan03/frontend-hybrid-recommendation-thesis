@@ -3,7 +3,6 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import AdminLogin from "./auth/AdminLogin";
 import { Layout } from "./components/layout/Layout";
 import { Analytics } from "./pages/Analytics";
-import { Content } from "./pages/Content";
 import { Dashboard } from "./pages/Dashboard";
 import { Destinations } from "./pages/Destinations";
 import { Feedback } from "./pages/Feedback";
@@ -32,7 +31,6 @@ export const router = createBrowserRouter([
           { path: "feedback", Component: Feedback },
           { path: "analytics", Component: Analytics },
           { path: "logs", Component: Logs },
-          { path: "content", Component: Content },
         ],
       },
     ],
